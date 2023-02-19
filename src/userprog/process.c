@@ -537,7 +537,9 @@ static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
       }
 
       *esp -= 4;
-      **esp = *esp + 4;
+
+      int** int_esp = (int**) esp;
+      **int_esp = *esp + 4;
 
       *esp -= 4;
       **esp = argc;
