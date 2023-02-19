@@ -81,6 +81,16 @@ static void start_process(void* file_name_) {
   struct process* new_pcb = malloc(sizeof(struct process));
   success = pcb_success = new_pcb != NULL;
 
+  /* Allocate process_status and associated fields. */
+  struct process_status* p_status = malloc(sizeof(struct process_status));
+  if (p_status == NULL) {
+    return -1; // FIGURE OUT exit status
+  }
+  new_pcb->my_own = p_status;
+  list_init(&(new_pcb->children));
+  lock_init(&(new_pcb->my_own->lock));
+  sema_init(&(new_pcb->my_own->sema), 0);
+  
   /* Initialize process control block */
   if (success) {
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
@@ -112,6 +122,11 @@ static void start_process(void* file_name_) {
     free(pcb_to_free);
   }
 
+  /* Malloc'ed correctly, but not successful */
+  if (!success && p_status != NULL) {
+    free(p_status);
+  }
+
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
   if (!success) {
@@ -141,6 +156,20 @@ static void start_process(void* file_name_) {
 int process_wait(pid_t child_pid UNUSED) {
   sema_down(&temporary);
   return 0;
+}
+
+void exit_helper(int exit_code) {
+  struct thread* cur = thread_current();
+  process_status_t* mine = cur->pcb->my_own;
+  mine->exit_code = exit_code;
+  sema_up(&(mine->sema));
+  lock_acquire(&(mine->lock));
+  int ref_cnt = -- mine-> ref_cnt;
+  lock_release(&(mine->lock));
+  if (ref_cnt == 0) {
+    free(mine);
+  }
+  process_exit();
 }
 
 /* Free the current process's resources. */

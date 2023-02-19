@@ -27,7 +27,21 @@ struct process {
   uint32_t* pagedir;          /* Page directory. */
   char process_name[16];      /* Name of the main thread */
   struct thread* main_thread; /* Pointer to main thread */
+
+  // WHAT WE ADDED :)
+  struct process_status* my_own; // stores the current process's process_status
+  struct list children; // pintos list of children's process_status
 };
+
+typedef struct process_status { 
+  struct semaphore sema; // for scheduling; initialize to 0 
+  struct lock lock; // for ref_count updates
+  int ref_cnt; // initialized to 2 b/c 2 processes (the own process and its parent) care about its status
+  pid_t pid; // which process
+  int exit_code; // exit code of process 
+  struct list_elem* elem;
+} process_status_t;
+
 
 void userprog_init(void);
 
