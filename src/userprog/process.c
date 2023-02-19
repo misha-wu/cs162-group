@@ -295,6 +295,8 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   bool success = false;
   int i;
 
+  strlcpy(t->pcb->process_name, argv[0], strlen(argv[0]) + 1);
+
   /* Allocate and activate page directory. */
   t->pcb->pagedir = pagedir_create();
   if (t->pcb->pagedir == NULL)
