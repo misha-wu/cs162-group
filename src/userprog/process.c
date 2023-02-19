@@ -271,13 +271,14 @@ static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t 
    Returns true if successful, false otherwise. */
 bool load(const char* file_name, void (**eip)(void), void** esp) {
   char* save;
-  char* path_name = strtok_r(file_name, " ", &save);
+  char* token = strtok_r(file_name, " ", &save);
   int argc = 0;
   char* long_argv[100];
-  char* token;
-  while (token = strtok_r(NULL, " ", &save) != NULL) {
+  // char* token;
+  while (token != NULL) {
     long_argv[argc] = token;
     argc++;
+    token = strtok_r(NULL, " ", &save);
   }
 
   char* argv[argc];
@@ -496,18 +497,33 @@ static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
       // *esp = PHYS_BASE; STARTER CODE
       *esp_uncasted = PHYS_BASE;
 
-      int** esp = (int **) esp_uncasted;
+      char** esp = (char **) esp_uncasted;
 
       int32_t word_addresses[argc];
       for (int i = 0; i < argc; i++) {
-        *esp -= (strlen(argv[i]) + 1);
+        *esp -= 1;
+        
+        **esp = '\0';
+
+        int len = strlen(argv[i]);
+        for (int j = len - 1; j >= 0; j--) {
+          *esp -= 1;
+          **esp = argv[i][j];
+        }
+
         word_addresses[i] = *esp;
-        strlcpy(*esp, &argv[i], strlen(argv[i]) + 1);
+        
+        // while (size-- > 0)
+        //   *dst++ = *src++;
+
+        // *esp -= (strlen(argv[i]) + 1);
+        // word_addresses[i] = *esp;
+        // strlcpy(*esp, &argv[i], strlen(argv[i]) + 1);
       }
 
       int stored = PHYS_BASE - (int) *esp;
       // int aligned = - stored - (argc + 1) * 4 - 8;
-      int aligned = 16 - ((stored + (argc + 1) * 4 + 3) % 16);
+      int aligned = 16 - ((stored + (argc + 1) * 4 + 8) % 16);
       *esp -= aligned;
       
       *esp -= 4;
@@ -516,7 +532,8 @@ static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
       // memcpy(*esp, zero, 4);
       for (int i = argc - 1; i >= 0; i--) {
         *esp -= 4;
-        **esp = word_addresses[i];
+        int** int_esp = (int**) esp;
+        **int_esp = word_addresses[i];
       }
 
       *esp -= 4;
