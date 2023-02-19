@@ -507,7 +507,7 @@ static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
 
       int stored = PHYS_BASE - (int) *esp;
       // int aligned = - stored - (argc + 1) * 4 - 8;
-      int aligned = 16 - ((stored + (argc + 1) * 4 + 8) % 16);
+      int aligned = 16 - ((stored + (argc + 1) * 4 + 3) % 16);
       *esp -= aligned;
       
       *esp -= 4;
