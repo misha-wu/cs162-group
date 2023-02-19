@@ -259,7 +259,8 @@ struct Elf32_Phdr {
 #define PF_W 2 /* Writable. */
 #define PF_R 4 /* Readable. */
 
-static bool setup_stack(void** esp);
+// static bool setup_stack(void** esp); STARTER CODE
+static bool setup_stack(void** esp, int argc, char* argv[]);
 static bool validate_segment(const struct Elf32_Phdr*, struct file*);
 static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t read_bytes,
                          uint32_t zero_bytes, bool writable);
@@ -269,6 +270,22 @@ static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t 
    and its initial stack pointer into *ESP.
    Returns true if successful, false otherwise. */
 bool load(const char* file_name, void (**eip)(void), void** esp) {
+  char* save;
+  char* path_name = strtok_r(file_name, " ", &save);
+  int argc = 0;
+  char* long_argv[100];
+  char* token;
+  while (token = strtok_r(NULL, " ", &save) != NULL) {
+    long_argv[argc] = token;
+    argc++;
+  }
+
+  char* argv[argc];
+  for (int i = 0; i < argc; i++) {
+    argv[i] = long_argv[i];
+  }
+
+
 
   struct thread* t = thread_current();
   struct Elf32_Ehdr ehdr;
@@ -284,7 +301,8 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   process_activate();
 
   /* Open executable file. */
-  file = filesys_open(file_name);
+  file = filesys_open(file_name); // STARTER CODE
+  // file = filesys_open(argv[0]);
   if (file == NULL) {
     printf("load: %s: open failed\n", file_name);
     goto done;
@@ -349,7 +367,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   }
 
   /* Set up stack. */
-  if (!setup_stack(esp))
+  if (!setup_stack(esp, argc, argv))
     goto done;
 
   /* Start address. */
@@ -466,17 +484,60 @@ static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t 
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
-static bool setup_stack(void** esp) {
+// static bool setup_stack(void** esp) { // STARTER CODE
+static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
   uint8_t* kpage;
   bool success = false;
 
   kpage = palloc_get_page(PAL_USER | PAL_ZERO);
   if (kpage != NULL) {
     success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
-    if (success)
-      *esp = PHYS_BASE - 20;
-    else
+    if (success) {
+      // *esp = PHYS_BASE; STARTER CODE
+      *esp_uncasted = PHYS_BASE;
+
+      int** esp = (int **) esp_uncasted;
+
+      int32_t word_addresses[argc];
+      for (int i = 0; i < argc; i++) {
+        *esp -= (strlen(argv[i]) + 1);
+        word_addresses[i] = *esp;
+        strlcpy(*esp, &argv[i], strlen(argv[i]) + 1);
+      }
+
+      int stored = PHYS_BASE - (int) *esp;
+      // int aligned = - stored - (argc + 1) * 4 - 8;
+      int aligned = 16 - ((stored + (argc + 1) * 4 + 8) % 16);
+      *esp -= aligned;
+      
+      *esp -= 4;
+      int32_t zero = 0;
+      **esp = zero;
+      // memcpy(*esp, zero, 4);
+      for (int i = argc - 1; i >= 0; i--) {
+        *esp -= 4;
+        **esp = word_addresses[i];
+      }
+
+      *esp -= 4;
+      **esp = *esp + 4;
+
+      *esp -= 4;
+      **esp = argc;
+
+      *esp -= 4;
+      **esp = 0;
+      
+      // asm volatile("movl %%esp, %%eax;"       /* Save a copy of the stack pointer. */
+      //         "andl $0xfffff000, %%esp;" /* Move stack pointer to bottom of page. */
+      //         "pushal;"                  /* Push 32 bytes on stack at once. */
+      //         "movl %%eax, %%esp"        /* Restore copied stack pointer. */
+      //         :
+      //         :
+      //         : "eax"); /* Tell GCC we destroyed eax. */
+    } else {
       palloc_free_page(kpage);
+    }
   }
   return success;
 }
