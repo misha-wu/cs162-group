@@ -22,8 +22,25 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   /* printf("System call number: %d\n", args[0]); */
 
   if (args[0] == SYS_EXIT) {
+    // TODO: implement argument validation
     f->eax = args[1];
     printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     process_exit();
+  } else if (args[0] == SYS_WRITE) {
+    int fd = args[1];
+    char* buffer = (char *) args[2];
+    unsigned size = (unsigned) args[3];
+    if (fd == 1) {
+      // change if needed? we don't know how big a few hundred is :')
+      int max_buf_size = 200;
+      for (int i = 0; i * max_buf_size < size; i++) {
+        int min = size;
+        if (max_buf_size < size)
+          min = max_buf_size;
+        putbuf(buffer + i * max_buf_size, min);
+      }
+      return size;
+    }
+    // TODO: implement for not standard out
   }
 }
