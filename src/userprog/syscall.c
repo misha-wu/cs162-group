@@ -5,14 +5,53 @@
 #include "threads/thread.h"
 #include "userprog/process.h"
 
+struct lock global_file_lock;
+
 static void syscall_handler(struct intr_frame*);
 
-void syscall_init(void) { intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); }
+void syscall_init(void) { 
+  intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); 
+  lock_init(&global_file_lock);
+  }
 
 int exit(int status) {
   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, status);
   exit_helper();
   return status;
+}
+
+int create(char* filename, unsigned initial_size) {
+  lock_acquire(&global_file_lock);
+  if (filename == NULL) {
+    lock_release(&global_file_lock);
+    exit(-1);
+  } else if (initial_size > 256 || strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
+    lock_release(&global_file_lock);
+    return 0;
+  } else {
+    lock_release(&global_file_lock);
+    return 1;
+  }
+}
+
+int open (char *name) {
+  lock_acquire(&global_file_lock);
+  if (name == NULL) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct file* file = filesys_open(name);
+  if (file == NULL) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+  int fd = p->fd_index;
+  p->fd_table[fd] = file;
+  p->fd_index++;
+  lock_release(&global_file_lock);
+  return fd;
 }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
@@ -47,15 +86,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_CREATE) {
     char* filename = (char*) args[1];
     unsigned initial_size = (unsigned) args[2];
-    if (filename == NULL) {
-      exit(-1);
-    } else if (initial_size > 256 || strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
-      f->eax = 0;
-    } else {
-      f->eax = 1;
-    }
+    f->eax = create(filename, initial_size);
   } else if (args[0] == SYS_OPEN) {
-
+    char* name = (char*) args[1];
+    f->eax = open(name);
   } else if (args[0] == SYS_WRITE) {
     int fd = args[1];
     char* buffer = (char *) args[2];
