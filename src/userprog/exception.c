@@ -139,7 +139,8 @@ static void page_fault(struct intr_frame* f) {
 //   int* sp = (int*) f->esp;
 //   *sp = f->error_code;
 //   printf("testing qowieurlasdjflsajdflkajdflskadjf\n");
-   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+   // printf("%s: exit(%d)\n", thread_current()->pcb->process_name, -1);
+   exit(-1);
 
   /* To implement virtual memory, delete the rest of the function
      body, and replace it with code that brings in the page to

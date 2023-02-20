@@ -28,9 +28,12 @@ struct process {
   char process_name[16];      /* Name of the main thread */
   struct thread* main_thread; /* Pointer to main thread */
 
-  // WHAT WE ADDED :)
+  // WOMENDECODE WODE OUR CODE OUR CHENGXU
   struct process_status* my_own; // stores the current process's process_status
   struct list children; // pintos list of children's process_status
+
+  struct file* fd_table[256];
+  int fd_index;
 };
 
 typedef struct process_status { 
