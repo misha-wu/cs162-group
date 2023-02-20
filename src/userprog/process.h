@@ -39,6 +39,7 @@ typedef struct process_status {
   int ref_cnt; // initialized to 2 b/c 2 processes (the own process and its parent) care about its status
   pid_t pid; // which process
   int exit_code; // exit code of process 
+  bool load_success; // stores whether the child successfully loaded
   struct list_elem* elem;
 } process_status_t;
 

@@ -111,6 +111,9 @@ static void start_process(void* file_name_) {
     if_.eflags = FLAG_IF | FLAG_MBS;
     success = load(file_name, &if_.eip, &if_.esp);
   }
+  
+  t->pcb->my_own->load_success = success;
+  sema_up(&(t->pcb->my_own->sema));
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
   if (!success && pcb_success) {
@@ -156,6 +159,19 @@ static void start_process(void* file_name_) {
 int process_wait(pid_t child_pid UNUSED) {
   sema_down(&temporary);
   return 0;
+}
+
+pid_t process_exec(char* cmd_line) {
+  pid_t child_pid = process_execute(cmd_line);
+  struct thread* t = get_thread(child_pid);
+  struct process* p = t->pcb;
+  struct thread* cur = thread_current();
+  list_push_back(&(cur->pcb->children), p->my_own);
+  sema_down(&(p->my_own->sema));
+  if (!p->my_own->load_success) {
+    return -1;
+  }
+  return child_pid;
 }
 
 void exit_helper(int exit_code) {
