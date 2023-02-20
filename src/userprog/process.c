@@ -21,6 +21,7 @@
 #include "threads/vaddr.h"
 
 static struct semaphore temporary;
+static struct semaphore exec_sema;
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
@@ -55,6 +56,7 @@ pid_t process_execute(const char* file_name) {
   tid_t tid;
 
   sema_init(&temporary, 0);
+  sema_init(&exec_sema, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
@@ -90,7 +92,7 @@ static void start_process(void* file_name_) {
   list_init(&(new_pcb->children));
   lock_init(&(new_pcb->my_own->lock));
   sema_init(&(new_pcb->my_own->sema), 0);
-  
+
   /* Initialize process control block */
   if (success) {
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
@@ -113,7 +115,7 @@ static void start_process(void* file_name_) {
   }
 
   new_pcb->fd_index = 3;
-  
+
   t->pcb->my_own->load_success = success;
   sema_up(&(t->pcb->my_own->sema));
 
@@ -128,7 +130,7 @@ static void start_process(void* file_name_) {
   }
 
   /* Malloc'ed correctly, but not successful */
-  if (!success && p_status != NULL) {
+  if (!success) {
     free(p_status);
   }
 
@@ -164,12 +166,19 @@ int process_wait(pid_t child_pid UNUSED) {
 }
 
 pid_t process_exec(char* cmd_line) {
+  sema_init(&exec_sema, 0);
   pid_t child_pid = process_execute(cmd_line);
+  sema_down(&exec_sema);
   struct thread* t = get_thread(child_pid);
+  if (t == NULL) {
+    printf("get thread failed");
+    return -1;
+  }
   struct process* p = t->pcb;
   struct thread* cur = thread_current();
-  list_push_back(&(cur->pcb->children), p->my_own);
   sema_down(&(p->my_own->sema));
+  list_push_back(&(cur->pcb->children), &p->my_own->elem);
+
   if (!p->my_own->load_success) {
     return -1;
   }
