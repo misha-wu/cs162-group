@@ -5,6 +5,9 @@
 #include "threads/thread.h"
 #include "userprog/process.h"
 
+#include "userprog/pagedir.h"
+#include "threads/vaddr.h"
+
 struct lock global_file_lock;
 
 static void syscall_handler(struct intr_frame*);
@@ -13,6 +16,35 @@ void syscall_init(void) {
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); 
   lock_init(&global_file_lock);
   }
+
+// HELPER FUNCTIONS
+
+struct process* process_current() {
+  struct thread* t = thread_current();
+  return t->pcb;
+}
+
+// checks file descriptor is valid
+bool valid_fd(int fd) {
+  struct process* p = process_current();
+  if (fd >= p->fd_index || p->fd_table[fd] == NULL) {
+    return false;
+  }
+  return true;
+}
+
+bool valid_address(void* address) {
+  if (address == NULL || !is_user_vaddr(address)) {
+    return false;
+  }
+  struct process* p = process_current();
+  void* phys_addr = pagedir_get_page(p->pagedir, address);
+  // int* pte = lookup_page(p->pagedir, address, false);
+  if (phys_addr == NULL) {
+    return false;
+  }
+  return true;
+}
 
 int exit(int status) {
   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, status);
@@ -45,13 +77,67 @@ int open (char *name) {
     lock_release(&global_file_lock);
     return -1;
   }
-  struct thread* t = thread_current();
-  struct process* p = t->pcb;
+  struct process* p = process_current();
   int fd = p->fd_index;
   p->fd_table[fd] = file;
   p->fd_index++;
   lock_release(&global_file_lock);
   return fd;
+}
+
+bool remove (const char *file) {
+  lock_acquire(&global_file_lock);
+  if (file == NULL) {
+    lock_release(&global_file_lock);
+    return NULL;
+  }
+  lock_release(&global_file_lock);
+  return filesys_remove(file);
+}
+
+
+int filesize (int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct process* p = process_current();
+  int file_len = file_length(p->fd_table[fd]);
+  lock_release(&global_file_lock);
+  return file_len;
+}
+
+
+int read (int fd, void *buffer, unsigned size) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  if (!valid_address(buffer)) {
+    lock_release(&global_file_lock);
+    exit(-1);
+  }
+  int num_read = 0;
+  if (fd == 0) {
+    char* cbuf = (char*) buffer;
+    for (int i = 0; i < size; i++) {
+      uint8_t c = input_getc();
+      if (c == -1) {
+        break;
+      }
+      *cbuf = c;
+      cbuf++;
+      num_read++;
+    }
+    lock_release(&global_file_lock);
+    return num_read;
+  }
+  struct file* file = process_current()->fd_table[fd];
+  num_read = file_read(file, buffer, size);
+  lock_release(&global_file_lock);
+  return num_read;
 }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
@@ -90,6 +176,14 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_OPEN) {
     char* name = (char*) args[1];
     f->eax = open(name);
+  } else if (args[0] == SYS_REMOVE) {
+    char* name = (char*) args[1];
+    f->eax = remove(name);
+  } else if (args[0] == SYS_FILESIZE) {
+    int fd = args[1];
+    f->eax = filesize(fd);
+  } else if (args[0] == SYS_READ) {
+    f->eax = read(args[1], (void *) args[2], (unsigned) args[3]);
   } else if (args[0] == SYS_WRITE) {
     int fd = args[1];
     char* buffer = (char *) args[2];
