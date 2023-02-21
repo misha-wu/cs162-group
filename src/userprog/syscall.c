@@ -140,6 +140,38 @@ int read (int fd, void *buffer, unsigned size) {
   return num_read;
 }
 
+
+int write (int fd, const void *buffer, unsigned size) {
+  lock_acquire(&global_file_lock);
+  if (fd != 1 && !valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  if (!valid_address(buffer)) {
+    lock_release(&global_file_lock);
+    exit(-1);
+  }
+  if (fd == 1) {
+    // change if needed? we don't know how big a few hundred is :')
+    int max_buf_size = 200;
+    for (int i = 0; i * max_buf_size < size; i++) {
+      int min = size;
+      if (max_buf_size < size)
+        min = max_buf_size;
+      putbuf(buffer + i * max_buf_size, min);
+    }
+    lock_release(&global_file_lock);
+    return size;
+  }
+  struct file* my_file = process_current()->fd_table[fd];
+  // if (my_file->deny_write) {
+  //   exit(-1);
+  // }
+  int num_wrote = file_write(my_file, buffer, size);
+  lock_release(&global_file_lock);
+  return num_wrote;
+}
+
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
 
@@ -188,17 +220,27 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     int fd = args[1];
     char* buffer = (char *) args[2];
     unsigned size = (unsigned) args[3];
-    if (fd == 1) {
-      // change if needed? we don't know how big a few hundred is :')
-      int max_buf_size = 200;
-      for (int i = 0; i * max_buf_size < size; i++) {
-        int min = size;
-        if (max_buf_size < size)
-          min = max_buf_size;
-        putbuf(buffer + i * max_buf_size, min);
-      }
-      return size;
-    }
-    // TODO: implement for not standard out
+    // lock_acquire(&global_file_lock);
+    f->eax = write(args[1], (char *) args[2], (unsigned) args[3]);
+    // if (fd != 1 && !valid_fd(fd)) {
+    //   lock_release(&global_file_lock);
+    //   return -1;
+    // }
+    // if (!valid_address(buffer)) {
+    //   lock_release(&global_file_lock);
+    //   exit(-1);
+    // }
+    // if (fd == 1) {
+    //   // change if needed? we don't know how big a few hundred is :')
+    //   int max_buf_size = 200;
+    //   for (int i = 0; i * max_buf_size < size; i++) {
+    //     int min = size;
+    //     if (max_buf_size < size)
+    //       min = max_buf_size;
+    //     putbuf(buffer + i * max_buf_size, min);
+    //   }
+    //   f->eax = 0;
+    // }
+    
   }
 }
