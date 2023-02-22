@@ -191,8 +191,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     // process_exit();
     // END STARTER CODE
+    if(!valid_address(args[1])) {
+      f->eax = exit(-1);
+    }
     f->eax = exit(args[1]);
-    
     // TODO: maybe free file descriptor table (FDT)
     // TODO: loop through children and decrease refcnt
   } else if (args[0] == SYS_PRACTICE) {
@@ -200,7 +202,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_HALT) {
     shutdown_power_off();
   } else if (args[0] == SYS_EXEC) {
-    process_exec(args[1]);
+    f->eax = process_exec(args[1]);
   } else if (args[0] == SYS_CREATE) {
     char* filename = (char*) args[1];
     unsigned initial_size = (unsigned) args[2];
