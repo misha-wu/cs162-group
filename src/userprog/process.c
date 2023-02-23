@@ -1462,6 +1462,9 @@ pid_t process_execute(const char* file_name) {
     // idk is this a memroy leak lmao
     // palloc_free_page(arg);
   }
+  if (!child_status->load_success) {
+    return -1;
+  }
   return tid;
 }
 
@@ -1513,6 +1516,7 @@ static void start_process(void* sp_arg) {
   }
 
   new_pcb->fd_index = 3;
+  p_status->load_success = success;
   sema_up(&(p_status->sema));
 
   /* Handle failure with succesful PCB malloc. Must free the PCB */
