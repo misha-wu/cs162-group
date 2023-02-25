@@ -61,7 +61,8 @@ int create(char* filename, unsigned initial_size) {
   if (filename == NULL) {
     lock_release(&global_file_lock);
     exit(-1);
-  } else if (initial_size > 256 || strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
+  // } else if (initial_size > 256 || strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
+  } else if (strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
     lock_release(&global_file_lock);
     return 0;
   } else {
