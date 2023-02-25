@@ -1578,7 +1578,7 @@ int process_wait(pid_t child_pid UNUSED) {
   // if (p->magic != MAGIC) {
   //   return 0;
   // }
-  struct list children = p->children;
+  // struct list children = p->children;
   struct list_elem* e;
   struct process_status* child_status = NULL;
   // for (iter = list_begin(&children); iter != list_end(&children); iter = list_next(iter)) {
@@ -1588,9 +1588,26 @@ int process_wait(pid_t child_pid UNUSED) {
     //   break;
     // }
   // }
+  struct list listempty;
+  list_init(&listempty);
   // printf("test print\n");
 
-  for (e = list_begin(&children); e != list_end(&children); e = list_next(e)) {
+  for (e = list_begin(&listempty); e != list_end(&listempty); e = list_next(e)) {
+    // struct process_status* p_status = list_entry(e, struct process_status, elem);
+  }
+    // struct thread* t = list_entry(e, struct thread, allelem);
+    // func(t, aux);
+
+  // for (e = list_begin(&children); e != list_end(&children); e = list_next(e)) {
+  //   struct process_status* p_status = list_entry(e, struct process_status, elem);
+  //   if (p_status->pid == child_pid) {
+  //     child_status = p_status;
+  //     break;
+  //   }
+  //   // struct thread* t = list_entry(e, struct thread, allelem);
+  //   // func(t, aux);
+  // }
+  for (e = list_begin(&p->children); e != list_end(&p->children); e = list_next(e)) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     if (p_status->pid == child_pid) {
       child_status = p_status;
@@ -1600,10 +1617,11 @@ int process_wait(pid_t child_pid UNUSED) {
     // func(t, aux);
   }
 
-  // if (child_status == NULL) {
-  //   // bad things :(
-  //   return -1;
-  // }
+  if (child_status == NULL) {
+    // bad things :(
+    return -1;
+  }
+  list_remove(&child_status->elem);
   sema_down(&child_status->sema);
   return child_status->exit_code;
   // return 0;
