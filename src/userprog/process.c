@@ -1400,6 +1400,9 @@ static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
 
+// WOMENDECODE WODE OUR CODE OUR CHENGXU
+static int MAGIC = 123456789;
+
 /* Initializes user programs in the system by ensuring the main
    thread has a minimal PCB so that it can execute and wait for
    the first user process. Any additions to the PCB should be also
@@ -1415,6 +1418,8 @@ void userprog_init(void) {
      can come at any time and activate our pagedir */
   t->pcb = calloc(sizeof(struct process), 1);
   success = t->pcb != NULL;
+
+  list_init(&(t->pcb->children));
 
   /* Kill the kernel if we did not succeed */
   ASSERT(success);
@@ -1465,6 +1470,11 @@ pid_t process_execute(const char* file_name) {
   if (!child_status->load_success) {
     return -1;
   }
+  child_status->pid = tid;
+
+  struct thread* cur = thread_current();
+  struct process* p = cur->pcb;
+  list_push_back(&(p->children), &child_status->elem);
   return tid;
 }
 
@@ -1493,6 +1503,7 @@ static void start_process(void* sp_arg) {
   // }
   new_pcb->my_own = p_status;
   list_init(&(new_pcb->children));
+  new_pcb->magic = MAGIC;
   
   /* Initialize process control block */
   if (success) {
@@ -1561,21 +1572,55 @@ static void start_process(void* sp_arg) {
    This function will be implemented in problem 2-2.  For now, it
    does nothing. */
 int process_wait(pid_t child_pid UNUSED) {
-  sema_down(&temporary);
-  return 0;
+  // sema_down(&temporary);
+  struct thread* cur = thread_current();
+  struct process* p = cur->pcb;
+  // if (p->magic != MAGIC) {
+  //   return 0;
+  // }
+  struct list children = p->children;
+  struct list_elem* e;
+  struct process_status* child_status = NULL;
+  // for (iter = list_begin(&children); iter != list_end(&children); iter = list_next(iter)) {
+  //   struct process_status* p_status = list_entry(iter, struct process_status, elem);
+    // if (p_status->pid == child_pid) {
+    //   child_status = p_status;
+    //   break;
+    // }
+  // }
+  // printf("test print\n");
+
+  for (e = list_begin(&children); e != list_end(&children); e = list_next(e)) {
+    struct process_status* p_status = list_entry(e, struct process_status, elem);
+    if (p_status->pid == child_pid) {
+      child_status = p_status;
+      break;
+    }
+    // struct thread* t = list_entry(e, struct thread, allelem);
+    // func(t, aux);
+  }
+
+  // if (child_status == NULL) {
+  //   // bad things :(
+  //   return -1;
+  // }
+  sema_down(&child_status->sema);
+  return child_status->exit_code;
+  // return 0;
 }
 
 void exit_helper(int exit_code) {
   struct thread* cur = thread_current();
-  // process_status_t* mine = cur->pcb->my_own;
-  // mine->exit_code = exit_code;
-  // sema_up(&(mine->sema));
-  // lock_acquire(&(mine->lock));
-  // int ref_cnt = -- mine-> ref_cnt;
-  // lock_release(&(mine->lock));
-  // if (ref_cnt == 0) {
-  //   free(mine);
-  // }
+  process_status_t* mine = cur->pcb->my_own;
+  mine->exit_code = exit_code;
+  // printf("I am exiting thread %s with exit code %d\n", cur->name, mine->exit_code);
+  sema_up(&(mine->sema));
+  lock_acquire(&(mine->lock));
+  int ref_cnt = -- mine-> ref_cnt;
+  lock_release(&(mine->lock));
+  if (ref_cnt == 0) {
+    free(mine);
+  }
   process_exit();
 }
 

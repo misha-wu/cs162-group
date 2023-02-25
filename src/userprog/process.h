@@ -34,6 +34,7 @@ struct process {
 
   struct file* fd_table[256];
   int fd_index;
+  int magic;
 };
 
 typedef struct process_status { 
@@ -43,7 +44,7 @@ typedef struct process_status {
   pid_t pid; // which process
   int exit_code; // exit code of process 
   bool load_success; // stores whether the child successfully loaded
-  struct list_elem* elem;
+  struct list_elem elem;
 } process_status_t;
 
 struct start_process_arg {
