@@ -5,6 +5,10 @@
 #include "threads/thread.h"
 #include "userprog/process.h"
 
+//
+#include "filesys/file.h"
+//
+
 #include "userprog/pagedir.h"
 #include "threads/vaddr.h"
 
@@ -73,11 +77,18 @@ int open (char *name) {
     return -1;
   }
   struct file* file = filesys_open(name);
+  
+  // file_deny_write(file); // UHH
   if (file == NULL) {
     lock_release(&global_file_lock);
     return -1;
   }
   struct process* p = process_current();
+  // char arr_name[16];
+  // strlcpy(arr_name, name);
+  if (strcmp(p->process_name, name) == 0) {
+    file_deny_write(file);
+  }
   int fd = p->fd_index;
   p->fd_table[fd] = file;
   p->fd_index++;
@@ -169,7 +180,45 @@ int write (int fd, const void *buffer, unsigned size) {
   // }
   int num_wrote = file_write(my_file, buffer, size);
   lock_release(&global_file_lock);
+  if (num_wrote < 0) {
+    return 0;
+  }
   return num_wrote;
+}
+
+void seek(int fd, unsigned position) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) { // don't know if we can seek on stdout or not
+    lock_release(&global_file_lock);
+    return;
+  }
+  struct file* file = process_current()->fd_table[fd];
+  file_seek(file, position);
+  lock_release(&global_file_lock);
+}
+
+unsigned tell(int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) { // don't know if we can seek on stdout or not
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct file* my_file = process_current()->fd_table[fd];
+  off_t ret = file_tell(my_file);
+  lock_release(&global_file_lock);
+  return ret;
+}
+
+void close(int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) { // don't know if we can seek on stdout or not
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct file* file = process_current()->fd_table[fd];
+  file_close(file);
+  process_current()->fd_table[fd] = NULL;
+  lock_release(&global_file_lock);
 }
 
 static void syscall_handler(struct intr_frame* f UNUSED) {
@@ -212,12 +261,22 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_OPEN) {
     char* name = (char*) args[1];
     f->eax = open(name);
+  } else if (args[0] == SYS_CLOSE) {
+    int fd = args[1];
+    close(fd);
   } else if (args[0] == SYS_REMOVE) {
     char* name = (char*) args[1];
     f->eax = remove(name);
   } else if (args[0] == SYS_FILESIZE) {
     int fd = args[1];
     f->eax = filesize(fd);
+  } else if (args[0] == SYS_SEEK) {
+    int fd = args[1];
+    unsigned position = args[2];
+    seek(fd, position);
+  } else if (args[0] == SYS_TELL) {
+    int fd = args[1];
+    f->eax = tell(fd);
   } else if (args[0] == SYS_READ) {
     f->eax = read(args[1], (void *) args[2], (unsigned) args[3]);
   } else if (args[0] == SYS_WRITE) {
@@ -245,7 +304,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     //   }
     //   f->eax = 0;
     // }
-    
   }
 }
 

@@ -1588,13 +1588,13 @@ int process_wait(pid_t child_pid UNUSED) {
     //   break;
     // }
   // }
-  struct list listempty;
-  list_init(&listempty);
-  // printf("test print\n");
+  // struct list listempty;
+  // list_init(&listempty);
+  // // printf("test print\n");
 
-  for (e = list_begin(&listempty); e != list_end(&listempty); e = list_next(e)) {
-    // struct process_status* p_status = list_entry(e, struct process_status, elem);
-  }
+  // for (e = list_begin(&listempty); e != list_end(&listempty); e = list_next(e)) {
+  //   // struct process_status* p_status = list_entry(e, struct process_status, elem);
+  // }
     // struct thread* t = list_entry(e, struct thread, allelem);
     // func(t, aux);
 
@@ -1639,6 +1639,30 @@ void exit_helper(int exit_code) {
   if (ref_cnt == 0) {
     free(mine);
   }
+
+  struct process* p = cur->pcb;
+  struct list_elem* e;
+  struct process_status* child_status = NULL;
+  
+  for (e = list_begin(&p->children); e != list_end(&p->children); e = list_next(e)) {
+    struct process_status* p_status = list_entry(e, struct process_status, elem);
+    lock_acquire(&(p_status->lock));
+    int ref_cnt = -- p_status-> ref_cnt;
+    lock_release(&(p_status->lock));
+    if (p_status->ref_cnt == 0) {
+      list_remove(e);
+      free(p_status);
+    }
+    // struct thread* t = list_entry(e, struct thread, allelem);
+    // func(t, aux);
+  }
+  
+  for (int i = 3; i < 256; i++) {
+    if (p->fd_table[i] != NULL) {
+      close(i);
+    }
+  }
+
   process_exit();
 }
 
@@ -1805,10 +1829,12 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   /* Open executable file. */
   file = filesys_open(file_name); // STARTER CODE
   // file = filesys_open(argv[0]);
+  
   if (file == NULL) {
     printf("load: %s: open failed\n", file_name);
     goto done;
   }
+  file_deny_write(file);
 
   /* Read and verify executable header. */
   if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||
