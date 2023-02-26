@@ -19,6 +19,7 @@ enum intr_level intr_disable(void);
 struct intr_frame {
   /* Pushed by intr_entry in intr-stubs.S.
        These are the interrupted task's saved registers. */
+
   uint32_t edi;       /* Saved EDI. */
   uint32_t esi;       /* Saved ESI. */
   uint32_t ebp;       /* Saved EBP. */
@@ -31,6 +32,9 @@ struct intr_frame {
   uint16_t fs, : 16;  /* Saved FS segment register. */
   uint16_t es, : 16;  /* Saved ES segment register. */
   uint16_t ds, : 16;  /* Saved DS segment register. */
+
+  // WOMENDECODE
+  uint32_t fpu[27];
 
   /* Pushed by intrNN_stub in intr-stubs.S. */
   uint32_t vec_no; /* Interrupt vector number. */

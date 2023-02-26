@@ -80,6 +80,8 @@ int main(void) {
   /* Clear BSS. */
   bss_init();
 
+  asm volatile ("fninit");
+
   /* Break command line into arguments and parse options. */
   argv = read_command_line();
   argv = parse_options(argv);

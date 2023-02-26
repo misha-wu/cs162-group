@@ -206,6 +206,14 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  uint32_t tempfpu[27];
+  // asm volatile ("fsave (%0)" : : "r" (tempfpu));
+  // asm volatile ("fninit");
+  // asm volatile ("fsave (%0)" : : "r" (sf->fpu));
+  // asm volatile ("frstor (%0)" : : "r" (tempfpu));
+  asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&sf->fpu));
+
+
   /* Add to run queue. */
   thread_unblock(t);
 

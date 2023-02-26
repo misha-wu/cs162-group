@@ -23,6 +23,10 @@ switch_threads:
 	#
 	# This stack frame must match the one set up by thread_create()
 	# in size.
+
+	subl $108, %esp
+	fsave (%esp)
+
 	pushl %ebx
 	pushl %ebp
 	pushl %esi
@@ -41,10 +45,15 @@ switch_threads:
 	movl (%ecx,%edx,1), %esp
 
 	# Restore caller's register state.
+
 	popl %edi
 	popl %esi
 	popl %ebp
 	popl %ebx
+
+	frstor (%esp)
+	addl $108, %esp
+
         ret
 .endfunc
 
