@@ -1465,7 +1465,7 @@ pid_t process_execute(const char* file_name) {
   if (tid == TID_ERROR) {
     palloc_free_page(fn_copy);
     // idk is this a memroy leak lmao
-    // palloc_free_page(arg);
+    palloc_free_page(arg);
   }
   if (!child_status->load_success) {
     return -1;
@@ -1549,6 +1549,7 @@ static void start_process(void* sp_arg) {
 
   /* Clean up. Exit on failure or jump to userspace */
   palloc_free_page(file_name);
+  palloc_free_page(sp_arg);
   if (!success) {
     sema_up(&temporary);
     thread_exit();
