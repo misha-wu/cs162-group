@@ -148,7 +148,6 @@ int read (int fd, void *buffer, unsigned size) {
       if (c == -1) {
         break;
       }
-
       *cbuf = c;
       cbuf++;
       num_read++;
