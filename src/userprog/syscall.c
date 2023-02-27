@@ -31,6 +31,9 @@ struct process* process_current() {
 // checks file descriptor is valid
 bool valid_fd(int fd) {
   struct process* p = process_current();
+  if (fd == 0 || fd == 1 || fd == 2) {
+    return true;
+  }
   if (fd >= p->fd_index || p->fd_table[fd] == NULL) {
     return false;
   }
