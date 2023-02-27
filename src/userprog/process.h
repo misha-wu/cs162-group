@@ -34,7 +34,7 @@ struct process {
 
   struct file* fd_table[256];
   int fd_index;
-  int magic;
+  // int magic;
 };
 
 typedef struct process_status { 
@@ -45,7 +45,7 @@ typedef struct process_status {
   int exit_code; // exit code of process 
   bool load_success; // stores whether the child successfully loaded
   struct list_elem elem;
-  bool waited_on;
+  // bool waited_on;
 } process_status_t;
 
 struct start_process_arg {
