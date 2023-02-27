@@ -222,6 +222,14 @@ void close(int fd) {
   lock_release(&global_file_lock);
 }
 
+
+double compute_e (int n) {
+  if (n < 0) {
+    return -1;
+  }
+  return sys_sum_to_e(n);
+}
+
 static void syscall_handler(struct intr_frame* f UNUSED) {
   uint32_t* args = ((uint32_t*)f->esp);
 
@@ -305,7 +313,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     //   }
     //   f->eax = 0;
     // }
-  }
+    } else if (args[0] == SYS_COMPUTE_E) {
+      f->eax = compute_e(args[1]);
+    }
 }
 
 // #include "userprog/syscall.h"
