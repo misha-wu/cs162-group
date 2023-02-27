@@ -249,9 +249,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     // printf("%s: exit(%d)\n", thread_current()->pcb->process_name, args[1]);
     // process_exit();
     // END STARTER CODE
-    // if(!valid_address(args[1])) {
-    //   f->eax = exit(-1);
-    // }
+    if(!is_user_vaddr(args[1])) {
+      f->eax = exit(-1);
+    }
     f->eax = exit(args[1]);
     // TODO: maybe free file descriptor table (FDT)
     // TODO: loop through children and decrease refcnt
