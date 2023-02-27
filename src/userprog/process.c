@@ -1523,15 +1523,8 @@ static void start_process(void* sp_arg) {
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
-
-    // WOMENDECODE
     uint32_t tempfpu[27];
-    // asm volatile ("fsave (%0)" : : "r" (tempfpu));
-    // asm volatile ("fninit");
-    // asm volatile ("fsave (%0)" : : "r" (if_.fpu));
-    // asm volatile ("frstor (%0)" : : "r" (tempfpu));
     asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&if_.fpu));
-
     success = load(file_name, &if_.eip, &if_.esp);
   }
 
