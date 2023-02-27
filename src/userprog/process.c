@@ -45,10 +45,10 @@ void userprog_init(void) {
   t->pcb = calloc(sizeof(struct process), 1);
   success = t->pcb != NULL;
 
-  list_init(&(t->pcb->children));
-
   /* Kill the kernel if we did not succeed */
   ASSERT(success);
+
+  list_init(&(t->pcb->children));
 }
 
 /* Starts a new thread running a user program loaded from
@@ -63,14 +63,17 @@ pid_t process_execute(const char* file_name) {
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
+  // if (fn_copy == NULL)
+  //   return TID_ERROR;
   if (fn_copy == NULL)
-    return TID_ERROR;
+    return -1;
   strlcpy(fn_copy, file_name, PGSIZE);
 
   // struct process_status* child_status = malloc(sizeof(struct process_status));
   struct process_status* child_status = palloc_get_page(0);
   // struct process_status* p_status = palloc_get_page(0);
   if (child_status == NULL) {
+    palloc_free_page(fn_copy);
     return -1; // FIGURE OUT exit status
   }
 
@@ -80,6 +83,11 @@ pid_t process_execute(const char* file_name) {
   child_status->waited_on = false;
 
   struct start_process_arg* arg = palloc_get_page(0);
+  if (arg == NULL) {
+    palloc_free_page(fn_copy);
+    palloc_free_page(child_status);
+    return -1; // FIGURE OUT exit status
+  }
   arg -> file_name = fn_copy;
   arg -> child_status = child_status;
   // arg.file_name = fn_copy;
@@ -96,8 +104,9 @@ pid_t process_execute(const char* file_name) {
     palloc_free_page(child_status);
     palloc_free_page(arg);
   }
-  if (!child_status->load_success) {
+  if (tid == TID_ERROR || !child_status->load_success) {
     return -1;
+    // exit(-1);
   }
   child_status->pid = tid;
 
@@ -277,7 +286,6 @@ int process_wait(pid_t child_pid UNUSED) {
   // if (p->magic != MAGIC) {
   //   return 0;
   // }
-  struct list children = p->children;
   struct list_elem* e;
   struct process_status* child_status = NULL;
   // for (iter = list_begin(&children); iter != list_end(&children); iter = list_next(iter)) {
@@ -289,7 +297,7 @@ int process_wait(pid_t child_pid UNUSED) {
   // }
   // printf("test print\n");
 
-  for (e = list_begin(&children); e != list_end(&children); e = list_next(e)) {
+  for (e = list_begin(&p->children); e != list_end(&p->children); e = list_next(e)) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     if (p_status->pid == child_pid) {
       if (p_status->waited_on) {
@@ -302,10 +310,10 @@ int process_wait(pid_t child_pid UNUSED) {
     // func(t, aux);
   }
 
-  // if (child_status == NULL) {
-  //   // bad things :(
-  //   return -1;
-  // }
+  if (child_status == NULL) {
+    // bad things :(
+    return -1;
+  }
   child_status->waited_on = true;
   sema_down(&child_status->sema);
   return child_status->exit_code;
