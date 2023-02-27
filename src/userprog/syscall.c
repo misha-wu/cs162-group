@@ -144,7 +144,7 @@ int read (int fd, void *buffer, unsigned size) {
   if (fd == 0) {
     char* cbuf = (char*) buffer;
     for (unsigned int i = 0; i < size; i++) {
-      int c = input_getc();
+      uint8_t c = input_getc();
       if (c == -1) {
         break;
       }

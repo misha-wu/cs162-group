@@ -223,9 +223,9 @@ int process_wait(pid_t child_pid UNUSED) {
   int exit_code = child_status->exit_code;
 
   lock_acquire(&(child_status->lock));
-  child_status->ref_cnt -= 1;
+  int ref_cnt = --child_status-> ref_cnt;
   lock_release(&(child_status->lock));
-  if (child_status->ref_cnt == 0) {
+  if (ref_cnt == 0) {
     list_remove(&child_status->elem);
     palloc_free_page(child_status);
   }
@@ -261,10 +261,10 @@ void process_exit(void) {
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     lock_acquire(&(p_status->lock));
-    p_status-> ref_cnt -= 1;
+    int ref_cnt = -- p_status-> ref_cnt;
     lock_release(&(p_status->lock));
     struct list_elem* next = list_next(e);
-    if (p_status->ref_cnt == 0) {
+    if (ref_cnt == 0) {
       list_remove(e);
       palloc_free_page(p_status);
     }
