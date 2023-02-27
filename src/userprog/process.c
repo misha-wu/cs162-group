@@ -316,7 +316,17 @@ int process_wait(pid_t child_pid UNUSED) {
   }
   child_status->waited_on = true;
   sema_down(&child_status->sema);
-  return child_status->exit_code;
+  int exit_code = child_status->exit_code;
+
+  lock_acquire(&(child_status->lock));
+  int ref_cnt = -- child_status-> ref_cnt;
+  lock_release(&(child_status->lock));
+  if (child_status->ref_cnt == 0) {
+    list_remove(&child_status->elem);
+    // free(p_status);
+    palloc_free_page(child_status);
+  }
+  return exit_code;
 }
 
 void exit_helper(int exit_code) {
