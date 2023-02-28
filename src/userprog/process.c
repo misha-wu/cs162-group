@@ -28,7 +28,7 @@ bool setup_thread(void (**eip)(void), void** esp);
 
 // WOMENDECODE WODE OUR CODE OUR CHENGXU
 //source: just trust us bro
-static int MAGIC = 123456789;
+// static int MAGIC = 123456789;
 
 /* Initializes user programs in the system by ensuring the main
    thread has a minimal PCB so that it can execute and wait for
@@ -79,7 +79,7 @@ pid_t process_execute(const char* file_name) {
   lock_init(&(child_status->lock));
   sema_init(&(child_status->sema), 0);
   child_status->ref_cnt = 2; //initialize to 2 because 2 people care
-  child_status->waited_on = false; //bool because you don't want to wait twice
+  // child_status->waited_on = false; //bool because you don't want to wait twice
 
   struct start_process_arg* arg = palloc_get_page(0);
   if (arg == NULL) {
@@ -128,7 +128,7 @@ static void start_process(void* sp_arg) {
   if (success) {
     new_pcb->my_own = p_status;
     list_init(&(new_pcb->children));
-    new_pcb->magic = MAGIC;
+    // new_pcb->magic = MAGIC;
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
     // does not try to activate our uninitialized pagedir
     new_pcb->pagedir = NULL;
@@ -207,9 +207,9 @@ int process_wait(pid_t child_pid UNUSED) {
   for (e = list_begin(&p->children); e != list_end(&p->children); e = list_next(e)) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     if (p_status->pid == child_pid) {
-      if (p_status->waited_on) {
-        return -1;
-      }
+      // if (p_status->waited_on) {
+      //   return -1;
+      // }
       child_status = p_status;
       break;
     }
@@ -218,14 +218,14 @@ int process_wait(pid_t child_pid UNUSED) {
   if (child_status == NULL) {
     return -1;
   }
-  child_status->waited_on = true;
+  // child_status->waited_on = true;
   sema_down(&child_status->sema);
   int exit_code = child_status->exit_code;
 
   lock_acquire(&(child_status->lock));
-  child_status->ref_cnt -= 1;
+  int ref_cnt = --child_status-> ref_cnt;
   lock_release(&(child_status->lock));
-  if (child_status->ref_cnt == 0) {
+  if (ref_cnt == 0) {
     list_remove(&child_status->elem);
     palloc_free_page(child_status);
   }
@@ -261,10 +261,10 @@ void process_exit(void) {
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     lock_acquire(&(p_status->lock));
-    p_status-> ref_cnt -= 1;
+    int ref_cnt = -- p_status-> ref_cnt;
     lock_release(&(p_status->lock));
     struct list_elem* next = list_next(e);
-    if (p_status->ref_cnt == 0) {
+    if (ref_cnt == 0) {
       list_remove(e);
       palloc_free_page(p_status);
     }
