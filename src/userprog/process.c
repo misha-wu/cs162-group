@@ -20,15 +20,10 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-// static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
 bool setup_thread(void (**eip)(void), void** esp);
-
-// WOMENDECODE WODE OUR CODE OUR CHENGXU
-//source: just trust us bro
-// static int MAGIC = 123456789;
 
 /* Initializes user programs in the system by ensuring the main
    thread has a minimal PCB so that it can execute and wait for
@@ -60,7 +55,6 @@ pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
-  // sema_init(&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
@@ -68,24 +62,21 @@ pid_t process_execute(const char* file_name) {
     return -1;
   strlcpy(fn_copy, file_name, PGSIZE);
 
-  // struct process_status* child_status = malloc(sizeof(struct process_status));
   struct process_status* child_status = palloc_get_page(0);
-  // struct process_status* p_status = palloc_get_page(0);
   if (child_status == NULL) {
     palloc_free_page(fn_copy);
-    return -1; // FIGURE OUT exit status
+    return -1; 
   }
 
   lock_init(&(child_status->lock));
   sema_init(&(child_status->sema), 0);
-  child_status->ref_cnt = 2; //initialize to 2 because 2 people care
-  // child_status->waited_on = false; //bool because you don't want to wait twice
+  child_status->ref_cnt = 2; 
 
   struct start_process_arg* arg = palloc_get_page(0);
   if (arg == NULL) {
     palloc_free_page(fn_copy);
     palloc_free_page(child_status);
-    return -1; // FIGURE OUT exit status
+    return -1; 
   }
   arg -> file_name = fn_copy;
   arg -> child_status = child_status;
@@ -95,12 +86,11 @@ pid_t process_execute(const char* file_name) {
   sema_down(&(child_status->sema));
   if (tid == TID_ERROR) {
     palloc_free_page(fn_copy);
-    // idk is this a memroy leak lmao
     palloc_free_page(child_status);
     palloc_free_page(arg);
   }
   if (tid == TID_ERROR || !child_status->load_success) {
-    return -1; //not exit
+    return -1; 
   }
   child_status->pid = tid;
 
@@ -128,7 +118,7 @@ static void start_process(void* sp_arg) {
   if (success) {
     new_pcb->my_own = p_status;
     list_init(&(new_pcb->children));
-    // new_pcb->magic = MAGIC;
+
     // Ensure that timer_interrupt() -> schedule() -> process_activate()
     // does not try to activate our uninitialized pagedir
     new_pcb->pagedir = NULL;
@@ -175,7 +165,6 @@ static void start_process(void* sp_arg) {
   palloc_free_page(sp_arg);
   if (!success) {
     palloc_free_page(p_status);
-    // sema_up(&temporary);
     thread_exit();
   }
 
@@ -207,9 +196,6 @@ int process_wait(pid_t child_pid UNUSED) {
   for (e = list_begin(&p->children); e != list_end(&p->children); e = list_next(e)) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     if (p_status->pid == child_pid) {
-      // if (p_status->waited_on) {
-      //   return -1;
-      // }
       child_status = p_status;
       break;
     }
@@ -218,18 +204,22 @@ int process_wait(pid_t child_pid UNUSED) {
   if (child_status == NULL) {
     return -1;
   }
-  // child_status->waited_on = true;
+
   sema_down(&child_status->sema);
   int exit_code = child_status->exit_code;
-
-  lock_acquire(&(child_status->lock));
-  int ref_cnt = --child_status-> ref_cnt;
-  lock_release(&(child_status->lock));
-  if (ref_cnt == 0) {
-    list_remove(&child_status->elem);
-    palloc_free_page(child_status);
-  }
+  
+  decrement_and_mayhap_free(child_status);
   return exit_code;
+}
+
+void decrement_and_mayhap_free(struct process_status* p_status) {
+  lock_acquire(&(p_status->lock));
+  int ref_cnt = -- p_status-> ref_cnt;
+  lock_release(&(p_status->lock));
+  if (ref_cnt == 0) {
+    list_remove(&p_status->elem);
+    palloc_free_page(p_status);
+  }
 }
 
 
@@ -247,27 +237,15 @@ void process_exit(void) {
   process_status_t* mine = cur->pcb->my_own;
 
   sema_up(&(mine->sema));
-  lock_acquire(&(mine->lock));
-  int ref_cnt = -- mine-> ref_cnt;
-  lock_release(&(mine->lock));
-  if (ref_cnt == 0) {
-    list_remove(&mine->elem);
-    palloc_free_page(mine);
-  }
+  decrement_and_mayhap_free(mine);
 
   struct process* p = cur->pcb;
   struct list_elem* e;
   
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
-    lock_acquire(&(p_status->lock));
-    int ref_cnt = -- p_status-> ref_cnt;
-    lock_release(&(p_status->lock));
     struct list_elem* next = list_next(e);
-    if (ref_cnt == 0) {
-      list_remove(e);
-      palloc_free_page(p_status);
-    }
+    decrement_and_mayhap_free(p_status);
     e = next;
   }
 
@@ -301,7 +279,6 @@ void process_exit(void) {
   cur->pcb = NULL;
   free(pcb_to_free);
 
-  // sema_up(&temporary);
   thread_exit();
 }
 
@@ -382,7 +359,6 @@ struct Elf32_Phdr {
 #define PF_W 2 /* Writable. */
 #define PF_R 4 /* Readable. */
 
-// static bool setup_stack(void** esp); STARTER CODE
 static bool setup_stack(void** esp, int argc, char* argv[]);
 static bool validate_segment(const struct Elf32_Phdr*, struct file*);
 static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t read_bytes,
@@ -425,8 +401,7 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
   process_activate();
 
   /* Open executable file. */
-  file = filesys_open(file_name); // STARTER CODE
-  // file = filesys_open(argv[0]);
+  file = filesys_open(file_name);
   
   if (file == NULL) {
     printf("load: %s: open failed\n", file_name);
@@ -610,7 +585,6 @@ static bool load_segment(struct file* file, off_t ofs, uint8_t* upage, uint32_t 
 
 /* Create a minimal stack by mapping a zeroed page at the top of
    user virtual memory. */
-// static bool setup_stack(void** esp) { // STARTER CODE
 static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
   uint8_t* kpage;
   bool success = false;
@@ -619,7 +593,6 @@ static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
   if (kpage != NULL) {
     success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
     if (success) {
-      // *esp = PHYS_BASE; STARTER CODE
       *esp_uncasted = PHYS_BASE;
 
       char** esp = (char **) esp_uncasted;
