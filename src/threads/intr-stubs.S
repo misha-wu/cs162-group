@@ -28,6 +28,7 @@ intr_entry:
 	pushl %gs
 	pushal
 
+
 	/* Set up kernel environment. */
 	cld			/* String instructions go upward. */
 	mov $SEL_KDSEG, %eax	/* Initialize segment registers. */

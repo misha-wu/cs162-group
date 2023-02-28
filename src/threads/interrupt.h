@@ -33,7 +33,7 @@ struct intr_frame {
   uint16_t es, : 16;  /* Saved ES segment register. */
   uint16_t ds, : 16;  /* Saved DS segment register. */
 
-  // WOMENDECODE
+  /* fpu storage variable */
   uint32_t fpu[27];
 
   /* Pushed by intrNN_stub in intr-stubs.S. */
