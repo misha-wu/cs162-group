@@ -206,13 +206,11 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   sf->eip = switch_entry;
   sf->ebp = 0;
 
+  /* save our existing FPU of the current thread in a temporary local 27-int array variable, 
+  initialize the FPU with fninit, save the contents of the FPU into the switch_threads_frame,
+  then restore the contents of our FPU from the temporary variable*/
   uint32_t tempfpu[27];
-  // asm volatile ("fsave (%0)" : : "r" (tempfpu));
-  // asm volatile ("fninit");
-  // asm volatile ("fsave (%0)" : : "r" (sf->fpu));
-  // asm volatile ("frstor (%0)" : : "r" (tempfpu));
   asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&sf->fpu));
-
 
   /* Add to run queue. */
   thread_unblock(t);
@@ -573,7 +571,6 @@ static tid_t allocate_tid(void) {
    Used by switch.S, which can't figure it out on its own. */
 uint32_t thread_stack_ofs = offsetof(struct thread, stack);
 
-// WOMENDECODE WODE OUR CODE OUR CHENGXU
 struct thread* get_thread(tid_t tid) {
   struct list_elem* e;
   struct thread* t;

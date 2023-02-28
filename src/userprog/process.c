@@ -142,6 +142,10 @@ static void start_process(void* sp_arg) {
     if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
     if_.cs = SEL_UCSEG;
     if_.eflags = FLAG_IF | FLAG_MBS;
+
+    /* save our existing FPU of the current process in a temporary local 27-int array variable, 
+    initialize the FPU with fninit, save the contents of the FPU into the intr_frame struct, 
+    then restore the contents of our FPU from the temporary variable */
     uint32_t tempfpu[27];
     asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&if_.fpu));
     success = load(file_name, &if_.eip, &if_.esp);
