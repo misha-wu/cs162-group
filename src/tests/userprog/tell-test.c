@@ -3,7 +3,14 @@
 #include "tests/lib.h"
 
 void test_main(void) {
-  int w = tell(129320); //bad tell
+  int h1 = open("sample.txt");
+
+  int w = tell(h1); //good tell
+  if(w == -1) {
+    fail("should have been valid");
+  }
+
+  w = tell(129320); //bad tell
   if (w != -1)
     fail("tell() returned %d", w);
 }

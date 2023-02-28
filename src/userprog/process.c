@@ -20,7 +20,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
-static struct semaphore temporary;
+// static struct semaphore temporary;
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
@@ -60,7 +60,7 @@ pid_t process_execute(const char* file_name) {
   char* fn_copy;
   tid_t tid;
 
-  sema_init(&temporary, 0);
+  // sema_init(&temporary, 0);
   /* Make a copy of FILE_NAME.
      Otherwise there's a race between the caller and load(). */
   fn_copy = palloc_get_page(0);
@@ -175,7 +175,7 @@ static void start_process(void* sp_arg) {
   palloc_free_page(sp_arg);
   if (!success) {
     palloc_free_page(p_status);
-    sema_up(&temporary);
+    // sema_up(&temporary);
     thread_exit();
   }
 
@@ -301,7 +301,7 @@ void process_exit(void) {
   cur->pcb = NULL;
   free(pcb_to_free);
 
-  sema_up(&temporary);
+  // sema_up(&temporary);
   thread_exit();
 }
 

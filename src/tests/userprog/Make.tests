@@ -19,7 +19,7 @@ wait-simple wait-twice wait-killed wait-bad-pid multi-recurse           \
 multi-child-fd rox-simple rox-child rox-multichild bad-read bad-write   \
 bad-read2 bad-write2 bad-jump bad-jump2 iloveos practice stack-align-1  \
 stack-align-2 stack-align-3 stack-align-4 floating-point fp-simul       \
-fp-asm fp-syscall fp-kernel-e fp-init tell-good tell-bad)
+fp-asm fp-syscall fp-kernel-e fp-init tell-test filesize-test)
 
 tests/userprog_PROGS = $(tests/userprog_TESTS) $(addprefix \
 tests/userprog/,child-simple child-args child-bad child-close \
@@ -130,8 +130,8 @@ tests/userprog/fp-kernel-e_SRC = tests/userprog/fp-kernel-e.c tests/main.c
 tests/userprog/fp-init_SRC = tests/userprog/fp-init.c tests/main.c
 
 
-tests/userprog/tell-good_SRC = tests/userprog/tell-good.c tests/main.c
-tests/userprog/tell-bad_SRC = tests/userprog/tell-bad.c tests/main.c
+tests/userprog/tell-test_SRC = tests/userprog/tell-test.c tests/main.c
+tests/userprog/filesize-test_SRC = tests/userprog/filesize-test.c tests/main.c
 
 $(foreach prog,$(tests/userprog_PROGS),$(eval $(prog)_SRC += tests/lib.c))
 
@@ -174,6 +174,6 @@ tests/userprog/rox-multichild_PUTFILES += tests/userprog/child-rox
 tests/userprog/fp-simul_PUTFILES += tests/userprog/compute-e
 tests/userprog/fp-asm_PUTFILES += tests/userprog/fp-asm-helper
 
-tests/userprog/tell-good_PUTFILES += tests/userprog/sample.txt
+tests/userprog/tell-test_PUTFILES += tests/userprog/sample.txt
 
 
