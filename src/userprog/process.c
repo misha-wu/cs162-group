@@ -226,6 +226,13 @@ void decrement_and_mayhap_free(struct process_status* p_status) {
   }
 }
 
+// lets us take care of the exit code before calling process_exit
+void exit_helper(int exit_code) {
+  struct thread* cur = thread_current();
+  process_status_t* mine = cur->pcb->my_own;
+  mine->exit_code = exit_code;
+  process_exit();
+}
 
 /* Free the current process's resources. */
 void process_exit(void) {

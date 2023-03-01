@@ -27,15 +27,6 @@ struct process* process_current(void) {
   return t->pcb;
 }
 
-void exit_helper(int exit_code) {
-  struct thread* cur = thread_current();
-  process_status_t* mine = cur->pcb->my_own;
-  mine->exit_code = exit_code;
-  // printf("I am exiting thread %s with exit code %d\n", cur->name, mine->exit_code); //testing error msg
-  process_exit();
-}
-
-
 // checks file descriptor is valid
 bool valid_fd(int fd) {
   struct process* p = process_current();
@@ -173,7 +164,6 @@ int write (int fd, const void *buffer, unsigned size) {
     exit(-1);
   }
   if (fd == 1) {
-    // change if needed? we don't know how big a few hundred is :')
     unsigned int max_buf_size = 200;
     for (int i = 0; i * max_buf_size < size; i++) {
       int min = size;
@@ -195,7 +185,7 @@ int write (int fd, const void *buffer, unsigned size) {
 
 void seek(int fd, unsigned position) {
   lock_acquire(&global_file_lock);
-  if (!valid_fd(fd)) { // don't know if we can seek on stdout or not
+  if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
     return;
   }
@@ -206,7 +196,7 @@ void seek(int fd, unsigned position) {
 
 unsigned tell(int fd) {
   lock_acquire(&global_file_lock);
-  if (!valid_fd(fd)) { // don't know if we can seek on stdout or not
+  if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
     return -1;
   }
@@ -218,9 +208,8 @@ unsigned tell(int fd) {
 
 void close(int fd) {
   lock_acquire(&global_file_lock);
-  if (!valid_fd(fd)) { // don't know if we can seek on stdout or not
+  if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
-    // return -1;
   } else {
     struct file* file = process_current()->fd_table[fd];
     file_close(file);
@@ -294,7 +283,6 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     int fd = args[1];
     char* buffer = (char *) args[2];
     unsigned size = (unsigned) args[3];
-    //lock in the function
     f->eax = write(fd, buffer, size);
   } else if (args[0] == SYS_COMPUTE_E) {
     f->eax = compute_e(args[1]);
