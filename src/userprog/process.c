@@ -606,44 +606,58 @@ static bool setup_stack(void** esp_uncasted, int argc, char* argv[]) {
     if (success) {
       *esp_uncasted = PHYS_BASE;
 
+      // we need *esp to not be a void* so that we can dereference it
       char** esp = (char **) esp_uncasted;
 
       int32_t word_addresses[argc];
+      // iterate through the arguments. the following loop "put[s] the arguments for the initial function on the stack" (spec)
       for (int i = 0; i < argc; i++) {
+        // need to decrement the stack pointer
         *esp -= 1;
-        
+
+        // add a null terminator for the string
         **esp = '\0';
 
         int len = strlen(argv[i]);
+        // iterate through each character to put it on the stack
         for (int j = len - 1; j >= 0; j--) {
+          // decrement stack pointer
           *esp -= 1;
+          // set memory at address of stack pointer to be this character
           **esp = argv[i][j];
         }
 
+        // save the address of this argument
         word_addresses[i] = *esp;
       }
 
       int stored = PHYS_BASE - (int) *esp;
+      // calculate how many bytes we need to pad for stack alignment after the arguments are added
       int aligned = 16 - ((stored + (argc + 1) * 4 + 8) % 16);
       *esp -= aligned;
       
+      // puts null pointer sentinel onto the stack
       *esp -= 4;
       int32_t zero = 0;
       **esp = zero;
+
+      // puts the addresses of each string onto the stack
       for (int i = argc - 1; i >= 0; i--) {
         *esp -= 4;
         int** int_esp = (int**) esp;
         **int_esp = word_addresses[i];
       }
 
+      // puts argv on the stack
       *esp -= 4;
-
       int** int_esp = (int**) esp;
       **int_esp = (int) *esp + 4;
 
+      // puts argc on the stack
       *esp -= 4;
       **esp = argc;
 
+      // puts "return address" on the stack
       *esp -= 4;
       **esp = 0;
       
