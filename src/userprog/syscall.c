@@ -12,7 +12,7 @@
 
 #include "lib/string.h"
 
-
+// global file system lock
 struct lock global_file_lock;
 
 static void syscall_handler(struct intr_frame*);
@@ -22,6 +22,7 @@ void syscall_init(void) {
   lock_init(&global_file_lock);
   }
 
+// helper function to get pcb of current process
 struct process* process_current(void) {
   struct thread* t = thread_current();
   return t->pcb;
@@ -53,17 +54,20 @@ bool valid_address(void* address) {
   return true;
 }
 
+// exit syscall
 int exit(int status) {
   printf("%s: exit(%d)\n", thread_current()->pcb->process_name, status);
   exit_helper(status);
   return status;
 }
 
+// create syscall
 int create(char* filename, unsigned initial_size) {
   lock_acquire(&global_file_lock);
   if (filename == NULL) {
     lock_release(&global_file_lock);
     exit(-1);
+  // check conditions and try to create, which will return false if failed 
   } else if (strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
     lock_release(&global_file_lock);
     return 0;
@@ -74,6 +78,7 @@ int create(char* filename, unsigned initial_size) {
   return 1;
 }
 
+// open syscall
 int open (char *name) {
   lock_acquire(&global_file_lock);
   if (name == NULL) {
@@ -90,6 +95,7 @@ int open (char *name) {
   if (strcmp(p->process_name, name) == 0) {
     file_deny_write(file);
   }
+  // add file to fd table and increment next available fd
   int fd = p->fd_index;
   p->fd_table[fd] = file;
   p->fd_index++;
@@ -97,6 +103,7 @@ int open (char *name) {
   return fd;
 }
 
+// remove syscall
 bool remove (const char *file) {
   lock_acquire(&global_file_lock);
   if (file == NULL) {
@@ -107,7 +114,7 @@ bool remove (const char *file) {
   return filesys_remove(file);
 }
 
-
+// filesize syscall
 int filesize (int fd) {
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
@@ -120,7 +127,7 @@ int filesize (int fd) {
   return file_len;
 }
 
-
+// read syscall
 int read (int fd, void *buffer, unsigned size) {
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
@@ -132,8 +139,10 @@ int read (int fd, void *buffer, unsigned size) {
     exit(-1);
   }
   int num_read = 0;
+  // read from stdin
   if (fd == 0) {
     char* cbuf = (char*) buffer;
+    // iterate through and get characters until we reach the desired size
     for (unsigned int i = 0; i < size; i++) {
       uint8_t c = input_getc();
       if (c == -1) {
@@ -146,13 +155,14 @@ int read (int fd, void *buffer, unsigned size) {
     lock_release(&global_file_lock);
     return num_read;
   }
+  // read from a file that is not stdin by calling the appropriate function
   struct file* file = process_current()->fd_table[fd];
   num_read = file_read(file, buffer, size);
   lock_release(&global_file_lock);
   return num_read;
 }
 
-
+// write syscall
 int write (int fd, const void *buffer, unsigned size) {
   lock_acquire(&global_file_lock);
   if (fd != 1 && !valid_fd(fd)) {
@@ -163,8 +173,10 @@ int write (int fd, const void *buffer, unsigned size) {
     lock_release(&global_file_lock);
     exit(-1);
   }
+  // write to stdout
   if (fd == 1) {
     unsigned int max_buf_size = 200;
+    // write at most max_buf_size characters at a time, keep looping until have written desired size
     for (int i = 0; i * max_buf_size < size; i++) {
       int min = size;
       if (max_buf_size < size)
@@ -174,6 +186,7 @@ int write (int fd, const void *buffer, unsigned size) {
     lock_release(&global_file_lock);
     return size;
   }
+  // write to a file that is not stdout by calling the appropriate function
   struct file* my_file = process_current()->fd_table[fd];
   int num_wrote = file_write(my_file, buffer, size);
   lock_release(&global_file_lock);
@@ -183,6 +196,7 @@ int write (int fd, const void *buffer, unsigned size) {
   return num_wrote;
 }
 
+// seek syscall
 void seek(int fd, unsigned position) {
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
@@ -194,6 +208,7 @@ void seek(int fd, unsigned position) {
   lock_release(&global_file_lock);
 }
 
+// tell syscall
 unsigned tell(int fd) {
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
@@ -206,6 +221,7 @@ unsigned tell(int fd) {
   return ret;
 }
 
+// close syscall
 void close(int fd) {
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
@@ -213,12 +229,13 @@ void close(int fd) {
   } else {
     struct file* file = process_current()->fd_table[fd];
     file_close(file);
+    // mark that a fd has been closed by setting it to null
     process_current()->fd_table[fd] = NULL;
     lock_release(&global_file_lock);
   }
 }
 
-
+// compute_e syscall
 double compute_e (int n) {
   if (n < 0) {
     return -1;
