@@ -68,10 +68,12 @@ pid_t process_execute(const char* file_name) {
     return -1; 
   }
 
+  // initializes the child's process_status
   lock_init(&(child_status->lock));
   sema_init(&(child_status->sema), 0);
   child_status->ref_cnt = 2; 
 
+  // struct to pass in as an argument to start_process, since it only takes one void* argument
   struct start_process_arg* arg = palloc_get_page(0);
   if (arg == NULL) {
     palloc_free_page(fn_copy);
@@ -96,6 +98,7 @@ pid_t process_execute(const char* file_name) {
 
   struct thread* cur = thread_current();
   struct process* p = cur->pcb;
+  // add child's process_status to our list of children
   list_push_back(&(p->children), &child_status->elem);
   return tid;
 }
@@ -128,8 +131,9 @@ static void start_process(void* sp_arg) {
     t->pcb->main_thread = t;
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
 
-
+    // our first available file descriptor is 3 because 0, 1, and 2 are reserved for stdin, stdout, stderr
     new_pcb->fd_index = 3;
+    // set mappings of 0, 1, and 2 to null because they don't correspond to acutal files
     new_pcb->fd_table[0] = NULL;
     new_pcb->fd_table[1] = NULL;
     new_pcb->fd_table[2] = NULL;
@@ -197,8 +201,10 @@ int process_wait(pid_t child_pid UNUSED) {
   struct list_elem* e;
   struct process_status* child_status = NULL;
 
+  // iterate through our list of children
   for (e = list_begin(&p->children); e != list_end(&p->children); e = list_next(e)) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
+    // check if we find a match
     if (p_status->pid == child_pid) {
       child_status = p_status;
       break;
@@ -216,6 +222,7 @@ int process_wait(pid_t child_pid UNUSED) {
   return exit_code;
 }
 
+// decrements the reference count of the given process_status and checks if it is at 0 so that we can free it and remove it from parent's list
 void decrement_and_mayhap_free(struct process_status* p_status) {
   lock_acquire(&(p_status->lock));
   int ref_cnt = -- p_status-> ref_cnt;
@@ -253,6 +260,7 @@ void process_exit(void) {
   struct process* p = cur->pcb;
   struct list_elem* e;
   
+  // iterate through list of children and decrement ref_cnt/check if they can be freed
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     struct list_elem* next = list_next(e);
@@ -260,6 +268,7 @@ void process_exit(void) {
     e = next;
   }
 
+  // close file descriptors
   for (int i = 0; i < 256; i++) {
     if (p->fd_table[i] != NULL) {
       close(i);
