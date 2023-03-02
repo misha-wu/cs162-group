@@ -14,7 +14,7 @@ test_main(void)
         msg("equal");
     }
 
-    // this should return -1 since 40 is a bad fd
+    // this should return -1 since 50 is a bad fd
     int bad = filesize(50);
     if (bad == -1) {
         msg("bad fd");
