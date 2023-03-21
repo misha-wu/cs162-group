@@ -98,6 +98,10 @@ struct thread {
   struct process* pcb; /* Process control block if this thread is a userprog */
 #endif
 
+  //ALARM CLOCK
+  int64_t ticks_sleep_for; // how many ticks we need to sleep for
+  int64_t ticks_started_sleeping; // at what tick the thread was called timer_sleep on
+  struct list_elem sleep_elem; // for sleeping threads
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };
