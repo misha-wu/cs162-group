@@ -212,6 +212,8 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   uint32_t tempfpu[27];
   asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&sf->fpu));
 
+  
+
   /* Add to run queue. */
   thread_unblock(t);
 
@@ -333,14 +335,45 @@ void thread_foreach(thread_action_func* func, void* aux) {
   }
 }
 
-// void set_donated_priority(struct thread* donee, int new_priority) {
+void set_donated_priority(struct thread* donee, int new_priority) {
+  enum intr_level old_level = intr_disable();
+  if (new_priority <= donee->priority) {
+    intr_set_level(old_level);
+    return;
+  } else {
+    donee->priority=new_priority;
+    while(donee && donee->waiting_on) {
+      if(new_priority > donee->priority) {
+        donee->priority = new_priority;
+      }
+      donee = donee->waiting_on->holder;
+    }
+    // set_donated_priority(donee->waiting_on->holder, new_priority);
+  }
 
-// }
+  intr_set_level(old_level);
+  return;
+}
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void thread_set_priority(int new_priority) { thread_current()->priority = new_priority; }
+void thread_set_priority(int new_priority) { 
+
+  struct thread *current_thread = thread_current();
+  set_donated_priority(current_thread, new_priority);
+
+  //iter to yield if necessary
+  struct list_elem *e;
+  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, allelem);
+    if(t->priority > current_thread->priority) {
+      yield();
+    }
+  }
+  // thread_current()->priority = new_priority; 
+}
 
 /* Returns the current thread's priority. */
+//supposedly working
 int thread_get_priority(void) { return thread_current()->priority; }
 
 /* Sets the current thread's nice value to NICE. */
@@ -438,8 +471,13 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   strlcpy(t->name, name, sizeof t->name);
   t->stack = (uint8_t*)t + PGSIZE;
   t->priority = priority;
+  t->base_priority = priority;
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
+
+  //WODEINIT
+  list_init(&t->locks_held);
+
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);

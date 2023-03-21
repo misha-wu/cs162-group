@@ -174,8 +174,18 @@ void lock_acquire(struct lock* lock) {
   ASSERT(!intr_context());
   ASSERT(!lock_held_by_current_thread(lock));
 
+  struct thread* t = thread_current();
+  if(lock->holder) {
+    set_donated_priority(lock->holder, t->priority); //set if better
+  }
+  
   sema_down(&lock->semaphore);
-  lock->holder = thread_current();
+  lock->holder = t;
+  // t->locks_held
+  list_push_back(&t->locks_held, &lock->locks_held_elem);
+
+  //prio scheduler modifications
+
 }
 
 /* Tries to acquires LOCK and returns true if successful or false
