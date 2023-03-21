@@ -103,9 +103,11 @@ struct thread {
   int64_t ticks_started_sleeping; // at what tick the thread was called timer_sleep on
   struct list_elem sleep_elem; // for sleeping threads
   
-  //PQUEUE
+  //PSCHED
   int base_priority; // priority of thread before priority donation
   struct list locks_held; //a list of the locks the thread currently holds
+  struct lock* waiting_on; //lock we are waiting on
+
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };

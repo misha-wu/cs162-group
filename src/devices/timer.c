@@ -156,6 +156,8 @@ void timer_print_stats(void) { printf("Timer: %" PRId64 " ticks\n", timer_ticks(
 
 /* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame* args UNUSED) {
+  ticks++;
+  thread_tick();
   struct list_elem* e;
   for (e = list_begin (&sleeping_threads); e != list_end (&sleeping_threads);) {
     struct thread *t = list_entry(e, struct thread, sleep_elem);
@@ -170,8 +172,7 @@ static void timer_interrupt(struct intr_frame* args UNUSED) {
       break;
     }
   }
-  ticks++;
-  thread_tick();
+
 
   //let scheduler choose the next top supermodel (thread).
   intr_yield_on_return();
