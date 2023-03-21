@@ -333,6 +333,10 @@ void thread_foreach(thread_action_func* func, void* aux) {
   }
 }
 
+// void set_donated_priority(struct thread* donee, int new_priority) {
+
+// }
+
 /* Sets the current thread's priority to NEW_PRIORITY. */
 void thread_set_priority(int new_priority) { thread_current()->priority = new_priority; }
 

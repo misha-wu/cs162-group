@@ -22,8 +22,8 @@ struct lock {
   struct semaphore semaphore; /* Binary semaphore controlling access. */
 
   //prio sched O.O
-  struct list donor_threads; // list of threads that tried to acquire the lock
-  struct list_elem elem; // list elem so that locks can be added to locks_held
+  // struct list donor_threads; // list of threads that tried to acquire the lock
+  // struct list_elem elem; // list elem so that locks can be added to locks_held
 };
 
 void lock_init(struct lock*);

@@ -157,25 +157,35 @@ void timer_print_stats(void) { printf("Timer: %" PRId64 " ticks\n", timer_ticks(
 /* Timer interrupt handler. */
 static void timer_interrupt(struct intr_frame* args UNUSED) {
   ticks++;
-  thread_tick();
+
   struct list_elem* e;
+  int prio = thread_current()->priority;
+  bool yield = false;
   for (e = list_begin (&sleeping_threads); e != list_end (&sleeping_threads);) {
     struct thread *t = list_entry(e, struct thread, sleep_elem);
     struct list_elem* next_e = list_next(e);
 
     if(timer_elapsed(t->ticks_started_sleeping) >= t->ticks_sleep_for) {
+      int new_prio = t->priority;
       list_remove(e);
       e = next_e;
       //a little sussy O.O
+      if(new_prio > prio) {
+        //we want to yield on return
+        yield = true;
+      }
       thread_unblock(t);
     } else {
       break;
     }
   }
 
-
-  //let scheduler choose the next top supermodel (thread).
-  intr_yield_on_return();
+  thread_tick();
+    
+  if(yield) {
+    //let scheduler choose the next top supermodel (thread).
+    intr_yield_on_return();
+  }
 }
 
 /* Returns true if LOOPS iterations waits for more than one timer
