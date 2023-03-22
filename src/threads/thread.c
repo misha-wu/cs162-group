@@ -244,6 +244,8 @@ static void thread_enqueue(struct thread* t) {
 
   if (active_sched_policy == SCHED_FIFO)
     list_push_back(&fifo_ready_list, &t->elem);
+  else if (active_sched_policy == SCHED_PRIO)
+    list_push_back(&fifo_ready_list, &t->elem);
   else
     PANIC("Unimplemented scheduling policy value: %d", active_sched_policy);
 }
@@ -505,7 +507,24 @@ static struct thread* thread_schedule_fifo(void) {
 
 /* Strict priority scheduler */
 static struct thread* thread_schedule_prio(void) {
-  PANIC("Unimplemented scheduler policy: \"-sched=prio\"");
+  if (list_empty(&fifo_ready_list))
+    return idle_thread;
+  // sus maybe change
+  int highest_prio = -10000;
+  struct thread* highest_prio_thread = NULL;
+  struct list_elem* e;
+  for (e = list_begin(&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
+    struct thread *t = list_entry(e, struct thread, elem);
+    if (t->priority > highest_prio) {
+      highest_prio = t->priority;
+      highest_prio_thread = t;
+    }
+  }
+  // struct list_elem *removed = 
+  list_remove(&highest_prio_thread->elem);
+  return highest_prio_thread;
+  // remove highest_prio_thread from fifo_ready_list and return it
+  // PANIC("Unimplemented scheduler policy: \"-sched=prio\"");
 }
 
 /* Fair priority scheduler */
