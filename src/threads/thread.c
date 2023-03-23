@@ -193,6 +193,8 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
+  t->base_priority = priority;
+  t->priority = priority;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -223,6 +225,7 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   if (priority > thread_current()->priority) {
     thread_yield();
   }
+  // check_yield();
 
   return tid;
 }
@@ -351,6 +354,7 @@ void set_donated_priority(struct thread* donee, int new_priority) {
   //   return;
   // } else {
   donee->priority=new_priority;
+  donee->base_priority=new_priority;
   while(donee && donee->waiting_on) {
     if(new_priority > donee->priority) {
       donee->priority = new_priority;
