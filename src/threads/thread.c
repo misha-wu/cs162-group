@@ -115,6 +115,9 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
+
+  // WOMENDECODE
+  initial_thread->priority = PRI_DEFAULT;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -216,6 +219,10 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 
   /* Add to run queue. */
   thread_unblock(t);
+
+  if (priority > thread_current()->priority) {
+    thread_yield();
+  }
 
   return tid;
 }
@@ -339,19 +346,19 @@ void thread_foreach(thread_action_func* func, void* aux) {
 
 void set_donated_priority(struct thread* donee, int new_priority) {
   enum intr_level old_level = intr_disable();
-  if (new_priority <= donee->priority) {
-    intr_set_level(old_level);
-    return;
-  } else {
-    donee->priority=new_priority;
-    while(donee && donee->waiting_on) {
-      if(new_priority > donee->priority) {
-        donee->priority = new_priority;
-      }
-      donee = donee->waiting_on->holder;
+  // if (new_priority <= donee->priority) {
+  //   intr_set_level(old_level);
+  //   return;
+  // } else {
+  donee->priority=new_priority;
+  while(donee && donee->waiting_on) {
+    if(new_priority > donee->priority) {
+      donee->priority = new_priority;
     }
-    // set_donated_priority(donee->waiting_on->holder, new_priority);
+    donee = donee->waiting_on->holder;
   }
+    // set_donated_priority(donee->waiting_on->holder, new_priority);
+  // }
 
   intr_set_level(old_level);
   return;
@@ -361,17 +368,25 @@ void set_donated_priority(struct thread* donee, int new_priority) {
 void thread_set_priority(int new_priority) { 
 
   struct thread *current_thread = thread_current();
+  // current_thread->priority = new_priority;
   set_donated_priority(current_thread, new_priority);
+  // printf("");
+  // printf("current_thread->priority: %d\n", current_thread->priority);
 
   //iter to yield if necessary
   struct list_elem *e;
-  for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e)) {
-    struct thread *t = list_entry(e, struct thread, allelem);
+  // for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e)) {
+  for (e = list_begin (&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
+    // struct thread *t = list_entry(e, struct thread, elem);
+    struct thread *t = list_entry(e, struct thread, elem);
     if(t->priority > current_thread->priority) {
+      // printf("t->priority: %d\n", t->priority);
+      // printf("current_thread->priority: %d\n", current_thread->priority);
       thread_yield();
     }
   }
   // thread_current()->priority = new_priority; 
+  int x = 0;
 }
 
 /* Returns the current thread's priority. */
@@ -515,6 +530,8 @@ static struct thread* thread_schedule_prio(void) {
   struct list_elem* e;
   for (e = list_begin(&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
     struct thread *t = list_entry(e, struct thread, elem);
+    // if (thread_get_priority() > highest_prio) {
+    //   highest_prio = thread_get_priority();
     if (t->priority > highest_prio) {
       highest_prio = t->priority;
       highest_prio_thread = t;
