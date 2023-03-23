@@ -395,10 +395,16 @@ void check_yield() {
     }
   }
   if (should_yield) {
+    if (intr_context()) {
+      intr_yield_on_return();
+    } else {
+      thread_yield();
+    }
     // printf("i yielded\n");
-    thread_yield();
+    // intr_yield_on_return();
   }
 }
+
 
 /* Returns the current thread's priority. */
 //supposedly working
