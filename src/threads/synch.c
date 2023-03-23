@@ -178,7 +178,7 @@ void lock_acquire(struct lock* lock) {
   if(lock->holder) {
     set_donated_priority(lock->holder, t->priority); //set if better
   }
-  
+  t->waiting_on = lock;
   sema_down(&lock->semaphore);
   lock->holder = t;
   // t->locks_held
@@ -215,8 +215,23 @@ void lock_release(struct lock* lock) {
   ASSERT(lock != NULL);
   ASSERT(lock_held_by_current_thread(lock));
 
+  struct thread* t = lock->holder;
+  list_remove(&lock->locks_held_elem);
+  t->priority = t->base_priority;
+  struct list_elem *e;
+  for (e = list_begin (&t->locks_held); e != list_end (&t->locks_held); e = list_next(e)) {
+    struct lock *l = list_entry(e, struct lock, locks_held_elem);
+    struct list_elem *f;
+    for (f = list_begin(&l->semaphore.waiters); f != list_end(&l->semaphore.waiters); f = list_next(f)) {
+      struct thread *newt = list_entry(f, struct thread, elem);
+      if (newt->priority > t->priority) {
+        t->priority = newt->priority;
+      }
+    }
+  }
   lock->holder = NULL;
   sema_up(&lock->semaphore);
+  check_yield();
 }
 
 /* Returns true if the current thread holds LOCK, false

@@ -374,6 +374,13 @@ void thread_set_priority(int new_priority) {
   // printf("current_thread->priority: %d\n", current_thread->priority);
 
   //iter to yield if necessary
+  check_yield();
+  // thread_current()->priority = new_priority; 
+  // int x = 0;
+}
+
+void check_yield() {
+  struct thread *current_thread = thread_current();
   struct list_elem *e;
   bool should_yield = false;
   // for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e)) {
@@ -388,10 +395,9 @@ void thread_set_priority(int new_priority) {
     }
   }
   if (should_yield) {
+    printf("i yielded\n");
     thread_yield();
   }
-  // thread_current()->priority = new_priority; 
-  // int x = 0;
 }
 
 /* Returns the current thread's priority. */
