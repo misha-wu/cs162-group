@@ -375,6 +375,7 @@ void thread_set_priority(int new_priority) {
 
   //iter to yield if necessary
   struct list_elem *e;
+  bool should_yield = false;
   // for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e)) {
   for (e = list_begin (&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
     // struct thread *t = list_entry(e, struct thread, elem);
@@ -382,11 +383,15 @@ void thread_set_priority(int new_priority) {
     if(t->priority > current_thread->priority) {
       // printf("t->priority: %d\n", t->priority);
       // printf("current_thread->priority: %d\n", current_thread->priority);
-      thread_yield();
+      should_yield = true;
+      
     }
   }
+  if (should_yield) {
+    thread_yield();
+  }
   // thread_current()->priority = new_priority; 
-  int x = 0;
+  // int x = 0;
 }
 
 /* Returns the current thread's priority. */
@@ -538,6 +543,9 @@ static struct thread* thread_schedule_prio(void) {
     }
   }
   // struct list_elem *removed = 
+  if (highest_prio_thread == NULL) {
+    printf("ded");
+  }
   list_remove(&highest_prio_thread->elem);
   return highest_prio_thread;
   // remove highest_prio_thread from fifo_ready_list and return it
