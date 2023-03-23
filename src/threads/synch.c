@@ -106,9 +106,7 @@ void sema_up(struct semaphore* sema) {
   struct thread *max_prio_thread = NULL;
 
   old_level = intr_disable();
-  // printf("do i even get here1\n");
   if (!list_empty(&sema->waiters)) {
-    // printf("do i even get here2\n");
     struct list_elem *e;
     for (e = list_begin(&sema->waiters); e != list_end(&sema->waiters); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
@@ -117,7 +115,7 @@ void sema_up(struct semaphore* sema) {
         max_prio_thread = t;
       }
     }
-    // printf("do i even get here3\n");
+
     list_remove(&max_prio_thread->elem);
     thread_unblock(max_prio_thread);
   
@@ -125,13 +123,6 @@ void sema_up(struct semaphore* sema) {
   }
   sema->value++;
   intr_set_level(old_level);
-  // if (intr_context()) {
-  //   intr_yield_on_return();
-  // } else {
-  //   thread_yield();
-  // }
-  check_yield();
-  // thread_yield();
 }
 
 static void sema_test_helper(void* sema_);
