@@ -101,9 +101,26 @@ void sema_up(struct semaphore* sema) {
 
   ASSERT(sema != NULL);
 
+  // kinda sus idk what number
+  int max_prio = -10000;
+  struct thread *max_prio_thread = NULL;
+
   old_level = intr_disable();
-  if (!list_empty(&sema->waiters))
-    thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+  if (!list_empty(&sema->waiters)) {
+    struct list_elem *e;
+    for (e = list_begin(&sema->waiters); e != list_end(&sema->waiters); e = list_next(e)) {
+      struct thread *t = list_entry(e, struct thread, elem);
+      if (t->priority > max_prio) {
+        max_prio = t->priority;
+        max_prio_thread = t;
+      }
+    }
+
+    list_remove(&max_prio_thread->elem);
+    thread_unblock(max_prio_thread);
+  
+    // thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+  }
   sema->value++;
   intr_set_level(old_level);
 }

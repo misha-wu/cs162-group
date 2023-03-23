@@ -395,7 +395,7 @@ void check_yield() {
     }
   }
   if (should_yield) {
-    printf("i yielded\n");
+    // printf("i yielded\n");
     thread_yield();
   }
 }
