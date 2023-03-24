@@ -352,14 +352,27 @@ void set_donated_priority(struct thread* donee, int new_priority) {
 
   if(new_priority > donee->priority) {
     donee->priority=new_priority;
-  // donee->base_priority=new_priority;
-    while(donee && donee->waiting_on) {
-      if(new_priority > donee->priority) {
-        donee->priority = new_priority;
-      }
-      donee = donee->waiting_on->holder;
-    }
   }
+  // donee->base_priority=new_priority;
+  while(donee && donee->waiting_on) {
+    if(new_priority > donee->priority) {
+      donee->priority = new_priority;
+    }
+    donee = donee->waiting_on->holder;
+  }
+
+  // struct list_elem *e;
+  // for (e = list_begin (&donee->locks_held); e != list_end (&donee->locks_held); e = list_next(e)) {
+  //   struct lock *l = list_entry(e, struct lock, locks_held_elem);
+  //   struct list_elem *f;
+  //   // for (f = list_begin(&l->semaphore.waiters); f != list_end(&l->semaphore.waiters); f = list_next(f)) {
+  //   //   struct thread *newt = list_entry(f, struct thread, elem);
+  //   //   if (newt->priority > donee->priority) {
+  //   //     donee->priority = newt->priority;
+  //   //   }
+  //   // }
+  // }
+
   // intr_set_level(old_level);
 }
 
@@ -368,7 +381,10 @@ void set_donated_priority(struct thread* donee, int new_priority) {
 void thread_set_priority(int new_priority) { 
   enum intr_level old_level = intr_disable();
   struct thread *current_thread = thread_current();
-  current_thread->priority = new_priority;
+  if (current_thread->base_priority == current_thread->priority || new_priority > current_thread->priority) {
+    current_thread->priority = new_priority;
+  }
+  
   current_thread->base_priority=new_priority;
   
   set_donated_priority(current_thread, new_priority);
