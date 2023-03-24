@@ -359,12 +359,8 @@ void set_donated_priority(struct thread* donee, int new_priority) {
       }
       donee = donee->waiting_on->holder;
     }
-    // set_donated_priority(donee->waiting_on->holder, new_priority);
-
   }
-  
   // intr_set_level(old_level);
-  return;
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
