@@ -352,13 +352,14 @@ void set_donated_priority(struct thread* donee, int new_priority) {
 
   if(new_priority > donee->priority) {
     donee->priority=new_priority;
-  }
+  
   // donee->base_priority=new_priority;
-  while(donee && donee->waiting_on) {
-    if(new_priority > donee->priority) {
-      donee->priority = new_priority;
+    while(donee && donee->waiting_on) {
+      if(new_priority > donee->priority) {
+        donee->priority = new_priority;
+      }
+      donee = donee->waiting_on->holder;
     }
-    donee = donee->waiting_on->holder;
   }
 
   // struct list_elem *e;
