@@ -347,38 +347,41 @@ void thread_foreach(thread_action_func* func, void* aux) {
   }
 }
 
+//called with interrupts off
 void set_donated_priority(struct thread* donee, int new_priority) {
-  enum intr_level old_level = intr_disable();
-  // if (new_priority <= donee->priority) {
-  //   intr_set_level(old_level);
-  //   return;
-  // } else {
-  donee->priority=new_priority;
+
+  if(new_priority > donee->priority) {
+    donee->priority=new_priority;
   // donee->base_priority=new_priority;
-  while(donee && donee->waiting_on) {
-    if(new_priority > donee->priority) {
-      donee->priority = new_priority;
+    while(donee && donee->waiting_on) {
+      if(new_priority > donee->priority) {
+        donee->priority = new_priority;
+      }
+      donee = donee->waiting_on->holder;
     }
-    donee = donee->waiting_on->holder;
-  }
     // set_donated_priority(donee->waiting_on->holder, new_priority);
 
-  intr_set_level(old_level);
+  }
+  
+  // intr_set_level(old_level);
   return;
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
-void thread_set_priority(int new_priority) { 
 
+void thread_set_priority(int new_priority) { 
+  enum intr_level old_level = intr_disable();
   struct thread *current_thread = thread_current();
   // current_thread->priority = new_priority;
-  set_donated_priority(current_thread, new_priority);
   current_thread->base_priority=new_priority;
+  
+  set_donated_priority(current_thread, new_priority);
 
   // printf("");
   // printf("current_thread->priority: %d\n", current_thread->priority);
 
   //iter to yield if necessary
+  intr_set_level(old_level);
   check_yield();
   // thread_current()->priority = new_priority; 
   // int x = 0;

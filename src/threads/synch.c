@@ -199,6 +199,7 @@ void lock_acquire(struct lock* lock) {
   ASSERT(lock != NULL);
   ASSERT(!intr_context());
   ASSERT(!lock_held_by_current_thread(lock));
+  enum intr_level old_level = intr_disable();
 
   struct thread* t = thread_current();
   if(lock->holder) {
@@ -209,7 +210,7 @@ void lock_acquire(struct lock* lock) {
   lock->holder = t;
   // t->locks_held
   list_push_back(&t->locks_held, &lock->locks_held_elem);
-
+  intr_set_level(old_level);
   //prio scheduler modifications
 
 }
@@ -240,6 +241,7 @@ bool lock_try_acquire(struct lock* lock) {
 void lock_release(struct lock* lock) {
   ASSERT(lock != NULL);
   ASSERT(lock_held_by_current_thread(lock));
+  enum intr_level old_level = intr_disable();
 
   struct thread* t = lock->holder;
   list_remove(&lock->locks_held_elem);
@@ -257,6 +259,7 @@ void lock_release(struct lock* lock) {
   }
   lock->holder = NULL;
   sema_up(&lock->semaphore);
+  intr_set_level(old_level);
   check_yield();
 }
 
