@@ -399,7 +399,7 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
   if (!list_empty(&cond->waiters)) {
     struct thread* max_prio_thread = NULL;
     struct semaphore* max_prio_semaphore;
-    // struct semaphore_elem max_waiter;
+    struct semaphore_elem* max_waiter;
     int max_prio = -10000;
 
     struct list_elem *e;
@@ -410,7 +410,7 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
       // struct thread
       // struct thread* t = s->thread;
       if (t->priority > max_prio) {
-        // max_waiter = *s;
+        max_waiter = s;
         max_prio = t->priority;
         max_prio_thread = t;
         max_prio_semaphore = &s->semaphore;
@@ -420,6 +420,14 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
     list_remove(&max_prio_thread->elem);
     thread_unblock(max_prio_thread);
     // sema_up(max_prio_semaphore);
+
+
+    // struct list_elem *berkeleysocialclub = list_begin(&max_waiter->semaphore.waiters);
+    // struct thread* t = list_entry(berkeleysocialclub, struct thread, elem);
+    // list_remove(&list_entry(berkeleysocialclub, struct thread, elem)->elem);
+    // thread_unblock(list_entry(berkeleysocialclub, struct thread, elem));
+    list_remove(&max_waiter->elem);
+    sema_up(&max_waiter->semaphore);
 
     // sema_up(&max_waiter.semaphore);
     // sema_up(&max_semaphore);
