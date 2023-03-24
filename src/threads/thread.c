@@ -354,7 +354,6 @@ void set_donated_priority(struct thread* donee, int new_priority) {
   //   return;
   // } else {
   donee->priority=new_priority;
-  donee->base_priority=new_priority;
   while(donee && donee->waiting_on) {
     if(new_priority > donee->priority) {
       donee->priority = new_priority;
@@ -362,7 +361,6 @@ void set_donated_priority(struct thread* donee, int new_priority) {
     donee = donee->waiting_on->holder;
   }
     // set_donated_priority(donee->waiting_on->holder, new_priority);
-  // }
 
   intr_set_level(old_level);
   return;
@@ -374,6 +372,8 @@ void thread_set_priority(int new_priority) {
   struct thread *current_thread = thread_current();
   // current_thread->priority = new_priority;
   set_donated_priority(current_thread, new_priority);
+  current_thread->base_priority=new_priority;
+
   // printf("");
   // printf("current_thread->priority: %d\n", current_thread->priority);
 
