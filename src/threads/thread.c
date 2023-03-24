@@ -368,7 +368,7 @@ void set_donated_priority(struct thread* donee, int new_priority) {
 void thread_set_priority(int new_priority) { 
   enum intr_level old_level = intr_disable();
   struct thread *current_thread = thread_current();
-  // current_thread->priority = new_priority;
+  current_thread->priority = new_priority;
   current_thread->base_priority=new_priority;
   
   set_donated_priority(current_thread, new_priority);
