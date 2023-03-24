@@ -334,7 +334,7 @@ void rw_lock_release(struct rw_lock* rw_lock, bool reader) {
 struct semaphore_elem {
   struct list_elem elem;      /* List element. */
   struct semaphore semaphore; /* This semaphore. */
-  struct thread* thread; //why not
+  // struct thread* thread; //why not
 };
 
 /* Initializes condition variable COND.  A condition variable
@@ -398,20 +398,31 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
 
   if (!list_empty(&cond->waiters)) {
     struct thread* max_prio_thread = NULL;
-    struct semaphore max_semaphore;
+    struct semaphore* max_prio_semaphore;
+    // struct semaphore_elem max_waiter;
     int max_prio = -10000;
 
     struct list_elem *e;
     for (e = list_begin(&cond->waiters); e != list_end(&cond->waiters); e = list_next(e)) {
       struct semaphore_elem *s = list_entry(e, struct semaphore_elem, elem);
-      struct thread* t = s->thread;
-      if (max_prio > t->priority) {
+      struct list_elem *berkeleysocialclub = list_begin(&s->semaphore.waiters);
+      struct thread* t = list_entry(berkeleysocialclub, struct thread, elem);
+      // struct thread
+      // struct thread* t = s->thread;
+      if (t->priority > max_prio) {
+        // max_waiter = *s;
         max_prio = t->priority;
-        // max_prio_thread = t;
-        max_semaphore = s->semaphore;
+        max_prio_thread = t;
+        max_prio_semaphore = &s->semaphore;
+        // sema_up(&s->semaphore);
       }
     }
-    sema_up(&max_semaphore);
+    list_remove(&max_prio_thread->elem);
+    thread_unblock(max_prio_thread);
+    // sema_up(max_prio_semaphore);
+
+    // sema_up(&max_waiter.semaphore);
+    // sema_up(&max_semaphore);
   }
   check_yield();
     // sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
