@@ -137,7 +137,17 @@ static void start_process(void* sp_arg) {
     new_pcb->fd_table[0] = NULL;
     new_pcb->fd_table[1] = NULL;
     new_pcb->fd_table[2] = NULL;
-  
+
+    // USER THREADS initialization
+
+    list_init(&(new_pcb->threads_list));
+    list_init(&(new_pcb->join_list));
+    list_init(&(new_pcb->user_sema_list));
+    list_init(&(new_pcb->user_lock_list));
+    new_pcb->lock_counter = 0;
+    new_pcb->sema_counter = 0;
+
+    // calloc remaining structs? or not
   }
 
   /* Initialize interrupt frame and load executable. */
@@ -806,8 +816,11 @@ static void start_pthread(void* exec_) {
   struct start_pthread_arg* pt_arg = (struct start_pthread_arg*) exec_;
   stub_fun sf = pt_arg->sf;
   pthread_fun tf = pt_arg->tf;
-  // struct process* pcb = 
+  
   thread_current()->pcb = pt_arg->pcb;
+
+  list_push_back(&(pt_arg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
+
   struct semaphore sema = pt_arg->sema;
   void* arg = pt_arg->arg;
 
@@ -823,14 +836,28 @@ static void start_pthread(void* exec_) {
 
   process_activate();
   success = setup_thread(&if_.eip, &if_.esp);
+
+  if (!success) {
+    // what happens here?
+  }
+
   if_.eip = &pt_arg->sf;
   thread_current()->user_stack_pointer = if_.esp;
+
+  // pushing arguments onto the stack (arg, then tf)
+  // are we supposed to do it character by character; then pointers to the args after?
   if_.esp = (char *) if_.esp - 4;
   char* sendhelp = (char*) if_.esp;
   *sendhelp = arg;
   if_.esp = (char *) if_.esp - 4;
   sendhelp = (char*) if_.esp;
   *sendhelp = tf;
+
+  // fake return address?
+  if_.esp = (char *) if_.esp - 4;
+  int32_t zero = 0;
+  sendhelp = (char *) if_.esp;
+  *sendhelp = zero;
 
   asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
   NOT_REACHED();
@@ -843,7 +870,41 @@ static void start_pthread(void* exec_) {
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-tid_t pthread_join(tid_t tid UNUSED) { return -1; }
+// tid_t pthread_join(tid_t tid UNUSED) { return -1; }
+tid_t pthread_join(tid_t tid) {
+  struct process* p = thread_current()->pcb;
+  struct list_elem* e;
+  bool found = false;
+  struct thread* t;
+  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+    struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
+    if (tid == curr_t->tid) {
+      found = true;
+      t = curr_t;
+      break;
+    }
+  }
+  if (!found) {
+    return TID_ERROR;
+  }
+  lock_acquire(&(t->has_been_joined_lock));
+  if (t->has_been_joined) {
+    lock_release(&(t->has_been_joined_lock));
+    return TID_ERROR;
+  }
+  t->has_been_joined = true;
+  lock_release(&(t->has_been_joined_lock));
+
+
+  for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
+    struct join_struct* join = list_entry(e, struct join_struct, elem);
+    if (thread_current()->tid == join->tid) {
+      sema_down(&(join->join_sema));
+    }
+  }
+
+  return tid; // check return LOL
+}
 
 /* Free the current thread's resources. Most resources will
    be freed on thread_exit(), so all we have to do is deallocate the

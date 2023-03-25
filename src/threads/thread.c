@@ -196,6 +196,11 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   t->base_priority = priority;
   t->priority = priority;
 
+  /// USER THREADS
+  lock_init(&(t->has_been_joined_lock));
+  t->has_been_joined = false;
+  /// USER THREADS
+
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
   kf->eip = NULL;
@@ -216,8 +221,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   then restore the contents of our FPU from the temporary variable*/
   uint32_t tempfpu[27];
   asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&sf->fpu));
-
-  
 
   /* Add to run queue. */
   thread_unblock(t);
