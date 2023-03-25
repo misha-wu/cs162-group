@@ -243,6 +243,19 @@ double compute_e (int n) {
   return sys_sum_to_e(n);
 }
 
+// USER THREADS
+tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
+  return pthread_execute(sfun, tfun, arg);
+}
+
+void sys_pthread_exit(void) {
+
+}
+
+tid_t sys_pthread_join(tid_t tid) {
+
+}
+
 /*
 call helper, which does argument checking.
 */
