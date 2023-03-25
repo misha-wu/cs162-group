@@ -741,8 +741,8 @@ bool setup_thread(void (**eip)(void), void** esp) {
   bool success = install_page(vaddr, kpage, true);
   // if (kpage != NULL) {
   //   success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
-  return true;
-  
+  // return true;
+  return success;
 }
 
 /* Starts a new thread with a new user stack running SF, which takes
