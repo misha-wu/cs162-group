@@ -243,6 +243,24 @@ double compute_e (int n) {
   return sys_sum_to_e(n);
 }
 
+// typedef char lock_t;
+// typedef char sema_t;
+
+// bool lock_init_sys(lock_t* lock) {
+//   if (lock == NULL) {
+    
+//   }
+//   struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
+//   struct process* p = process_current();
+//   lock_acquire(&p->lock_counter_lock);
+//   *lock = p->lock_counter;
+//   p->lock_counter++;
+//   lock_release(&p->lock_counter_lock);
+//   mylock->user_lock = *lock;
+//   lock_init(&mylock->kernel_lock);
+//   list_push_back(&p->user_lock_list, &mylock->lock_elem);
+// }
+
 /*
 call helper, which does argument checking.
 */
@@ -303,5 +321,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = write(fd, buffer, size);
   } else if (args[0] == SYS_COMPUTE_E) {
     f->eax = compute_e(args[1]);
+  // } else if (args[0] == SYS_LOCK_INIT) {
+  //   f->eax = lock_init_sys(args[1]);
   }
 }

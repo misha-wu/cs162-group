@@ -32,6 +32,14 @@ struct process {
   struct list children;           /* Pintos list of children's process_status */
   struct file* fd_table[256];     /* Array of file* storing mappings from file descriptors to files */
   int fd_index;                   /* The next available file descriptor */
+
+
+  struct list user_lock_list; //list of WO_DE_LOCK_t*
+  struct list user_sema_list; //list of WO_DE_SEMA_t*
+  int lock_counter; // keeps track of how many locks have been created so far, init to 0
+  int sema_counter; // keeps track of how many semas have been created so far, init to 0
+  struct lock lock_counter_lock; // lock lock_counter from being modified by multiple threads simulateanously
+  struct lock sema_counter_lock; // lock sema_counter from being modified by multiple threads simulateanously
 };
 
 typedef struct process_status { 
