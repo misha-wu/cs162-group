@@ -261,6 +261,19 @@ double compute_e (int n) {
 //   list_push_back(&p->user_lock_list, &mylock->lock_elem);
 // }
 
+// USER THREADS
+tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
+  return pthread_execute(sfun, tfun, arg);
+}
+
+void sys_pthread_exit(void) {
+
+}
+
+tid_t sys_pthread_join(tid_t tid) {
+
+}
+
 /*
 call helper, which does argument checking.
 */

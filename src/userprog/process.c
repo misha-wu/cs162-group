@@ -709,7 +709,80 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. You may find it necessary to change the
    function signature. */
-bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; }
+// bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; }
+bool setup_thread(void (**eip)(void), void** esp) {
+  // // TODO
+  // uint8_t* kpage;
+  // bool success = false;
+
+  // kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  // if (kpage != NULL) {
+  //   success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
+  //   if (success) {
+  //     *esp_uncasted = PHYS_BASE;
+
+  //     // we need *esp to not be a void* so that we can dereference it
+  //     char** esp = (char **) esp_uncasted;
+
+  //     int32_t word_addresses[argc];
+  //     // iterate through the arguments. the following loop "put[s] the arguments for the initial function on the stack" (spec)
+  //     for (int i = 0; i < argc; i++) {
+  //       // need to decrement the stack pointer
+  //       *esp -= 1;
+
+  //       // add a null terminator for the string
+  //       **esp = '\0';
+
+  //       int len = strlen(argv[i]);
+  //       // iterate through each character to put it on the stack
+  //       for (int j = len - 1; j >= 0; j--) {
+  //         // decrement stack pointer
+  //         *esp -= 1;
+  //         // set memory at address of stack pointer to be this character
+  //         **esp = argv[i][j];
+  //       }
+
+  //       // save the address of this argument
+  //       word_addresses[i] = *esp;
+  //     }
+
+  //     int stored = PHYS_BASE - (int) *esp;
+  //     // calculate how many bytes we need to pad for stack alignment after the arguments are added
+  //     int aligned = 16 - ((stored + (argc + 1) * 4 + 8) % 16);
+  //     *esp -= aligned;
+      
+  //     // puts null pointer sentinel onto the stack
+  //     *esp -= 4;
+  //     int32_t zero = 0;
+  //     **esp = zero;
+
+  //     // puts the addresses of each string onto the stack
+  //     for (int i = argc - 1; i >= 0; i--) {
+  //       *esp -= 4;
+  //       int** int_esp = (int**) esp;
+  //       **int_esp = word_addresses[i];
+  //     }
+
+  //     // puts argv on the stack
+  //     *esp -= 4;
+  //     int** int_esp = (int**) esp;
+  //     **int_esp = (int) *esp + 4;
+
+  //     // puts argc on the stack
+  //     *esp -= 4;
+  //     **esp = argc;
+
+  //     // puts "return address" on the stack
+  //     *esp -= 4;
+  //     **esp = 0;
+      
+  //   } else {
+  //     palloc_free_page(kpage);
+  //   }
+  // }
+  // return success;
+  
+}
 
 /* Starts a new thread with a new user stack running SF, which takes
    TF and ARG as arguments on its user stack. This new thread may be
@@ -720,7 +793,52 @@ bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; 
    This function will be implemented in Project 2: Multithreading and
    should be similar to process_execute (). For now, it does nothing.
    */
-tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { return -1; }
+// tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { // return -1; // starter code}
+
+tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
+
+  tid_t tid;
+  
+  struct start_pthread_arg* start_arg = palloc_get_page(0);
+  if (start_arg == NULL) {
+    return -1; 
+  }
+
+  start_arg->sf = sf;
+  start_arg->tf = tf;
+  start_arg->arg = arg;
+  start_arg->success = false;
+  sema_init(&(start_arg->sema), 0); // sema-ing starts at 0?
+
+  // char curr_thread_name[] = thread_current()->name;
+  // char kt_name[] = "_kernel";
+  // strcat(curr_thread_name, kt_name);
+  char* curr_thread_name = thread_current()->name;
+
+  tid = thread_create(curr_thread_name, PRI_DEFAULT, start_pthread, start_arg);
+
+  sema_down(&(start_arg->sema));
+
+  if (tid == TID_ERROR || !start_arg->success) {
+    palloc_free_page(start_arg);
+    return -1;
+  }
+
+  struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
+
+  if (sema_and_thread == NULL) {
+    palloc_free_page(start_arg);
+    return -1;
+  }
+
+  sema_and_thread->tid = tid;
+  sema_init(&(sema_and_thread->join_sema), 1); // joining is allowed now?? not sure
+
+  // add the new join struct to our join struct list
+  list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
+
+  return tid;
+}
 
 /* A thread function that creates a new user thread and starts it
    running. Responsible for adding itself to the list of threads in
@@ -728,7 +846,29 @@ tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSE
 
    This function will be implemented in Project 2: Multithreading and
    should be similar to start_process (). For now, it does nothing. */
-static void start_pthread(void* exec_ UNUSED) {}
+// static void start_pthread(void* exec_ UNUSED) {}
+static void start_pthread(void* exec_) {
+
+  // unpack arguments
+  struct start_pthread_arg* pt_arg = (struct start_pthread_arg*) exec_;
+  stub_fun sf = pt_arg->sf;
+  pthread_fun tf = pt_arg->tf;
+  struct semaphore sema = pt_arg->sema;
+  void* arg = pt_arg->arg;
+
+  struct intr_frame if_;
+  bool success;
+  
+  memset(&if_, 0, sizeof if_);
+  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  if_.cs = SEL_UCSEG;
+  if_.eflags = FLAG_IF | FLAG_MBS;
+  
+  // thread_current()->pcb = some passed in arg;
+
+  process_activate();
+  setup_thread(&if_.eip, &if_.esp);
+}
 
 /* Waits for thread with TID to die, if that thread was spawned
    in the same process and has not been waited on yet. Returns TID on
@@ -748,7 +888,15 @@ tid_t pthread_join(tid_t tid UNUSED) { return -1; }
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-void pthread_exit(void) {}
+void pthread_exit(void) {
+
+  struct thread* t = thread_current();
+  free(t->user_stack_pointer);
+
+  // pagedir_clear_page(t->pcb->pagedir, );
+  // palloc_free_page();
+
+}
 
 /* Only to be used when the main thread explicitly calls pthread_exit.
    The main thread should wait on all threads in the process to

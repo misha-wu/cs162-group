@@ -108,6 +108,12 @@ struct thread {
   struct list locks_held; //a list of the locks the thread currently holds
   struct lock* waiting_on; //lock we are waiting on
 
+  // USER THREADS
+  uint8_t* user_stack_pointer; // keeps track of the mapping between the user thread and kernel thread
+  bool has_been_joined; // whether somebody has called join on this thread
+  struct lock_has_been_joined_lock; // to ensure that two threads can't simultaneously modify has_been_joined
+  struct list_elem IN_A_THREAD_ELEM; //list_elem item for process's thread list
+
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };

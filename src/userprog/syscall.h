@@ -24,6 +24,22 @@ typedef struct WO_DE_SEMA {
   struct lock mutex_lock;
 } WO_DE_SEMA_t;
 
+// typedef struct WO_DE_LOCK {
+//   struct lock kernel_lock; //kernel version
+//   struct lock user_lock; //user lock
+//   struct list_elem lock_elem;
+
+//   struct lock mutex_lock;
+// } WO_DE_LOCK_t;
+
+// typedef struct WO_DE_SEMA {
+//   struct semaphore kernel_sema; //kernel version
+//   struct semaphore user_sema; //user lock
+//   int value;
+//   struct list_elem sema_elem;
+//   struct lock mutex_lock;
+// } WO_DE_SEMA_t;
+
 void syscall_init(void);
 
 /* Utility functions */

@@ -33,6 +33,12 @@ struct process {
   struct file* fd_table[256];     /* Array of file* storing mappings from file descriptors to files */
   int fd_index;                   /* The next available file descriptor */
 
+  // USER THREADS
+  
+  int num_pages_so_far; // keeps track of how many pages there have been so far created by user threads, initialize to 1 for the first user thread
+  struct lock num_pages_so_far_lock; // lock num_pages_so_far from being modified by multiple threads simulateanously
+  struct list threads_list; // a list of all the threads under this process
+  struct list join_list;  // a list of join_struct
 
   struct list user_lock_list; //list of WO_DE_LOCK_t*
   struct list user_sema_list; //list of WO_DE_SEMA_t*
@@ -40,7 +46,27 @@ struct process {
   int sema_counter; // keeps track of how many semas have been created so far, init to 0
   struct lock lock_counter_lock; // lock lock_counter from being modified by multiple threads simulateanously
   struct lock sema_counter_lock; // lock sema_counter from being modified by multiple threads simulateanously
+
+  // struct semaphore exec_sema; //to make sure there isn't a race condition when calling exec
 };
+
+// a struct to join a specific thread with a specific semaphore
+struct join_struct {
+  struct semaphore join_sema; // semaphore that corresponds to that thread
+  tid_t tid; // tid of the thread
+  struct list_elem elem; // to put the joined_struct inside the join_sema_list in the struct process
+};
+
+/* Struct to pass in as an argument to start_pthread, */
+struct start_pthread_arg {  
+  stub_fun sf;
+  pthread_fun tf;
+  bool success; // not in design doc
+  struct semaphore sema; // not in design doc
+  void* arg; //can be NULL
+};
+
+/////
 
 typedef struct process_status { 
   struct semaphore sema;          /* For scheduling; initialize to 0 */
