@@ -711,76 +711,27 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
    function signature. */
 // bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; }
 bool setup_thread(void (**eip)(void), void** esp) {
+
+  uint8_t* vaddr = PHYS_BASE - PGSIZE;
+  while (vaddr > 0) {
+    if (pagedir_get_page(thread_current()->pcb->pagedir, vaddr)) {
+      break;
+    }
+    vaddr = (char *) vaddr - PGSIZE;
+  }
+  if (vaddr <= 0) {
+    return false;
+  }
+  *esp = (char *) vaddr + PGSIZE;
   // // TODO
-  // uint8_t* kpage;
+  uint8_t* kpage;
   // bool success = false;
 
-  // kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  bool success = install_page(vaddr, kpage, true);
   // if (kpage != NULL) {
   //   success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
-  //   if (success) {
-  //     *esp_uncasted = PHYS_BASE;
-
-  //     // we need *esp to not be a void* so that we can dereference it
-  //     char** esp = (char **) esp_uncasted;
-
-  //     int32_t word_addresses[argc];
-  //     // iterate through the arguments. the following loop "put[s] the arguments for the initial function on the stack" (spec)
-  //     for (int i = 0; i < argc; i++) {
-  //       // need to decrement the stack pointer
-  //       *esp -= 1;
-
-  //       // add a null terminator for the string
-  //       **esp = '\0';
-
-  //       int len = strlen(argv[i]);
-  //       // iterate through each character to put it on the stack
-  //       for (int j = len - 1; j >= 0; j--) {
-  //         // decrement stack pointer
-  //         *esp -= 1;
-  //         // set memory at address of stack pointer to be this character
-  //         **esp = argv[i][j];
-  //       }
-
-  //       // save the address of this argument
-  //       word_addresses[i] = *esp;
-  //     }
-
-  //     int stored = PHYS_BASE - (int) *esp;
-  //     // calculate how many bytes we need to pad for stack alignment after the arguments are added
-  //     int aligned = 16 - ((stored + (argc + 1) * 4 + 8) % 16);
-  //     *esp -= aligned;
-      
-  //     // puts null pointer sentinel onto the stack
-  //     *esp -= 4;
-  //     int32_t zero = 0;
-  //     **esp = zero;
-
-  //     // puts the addresses of each string onto the stack
-  //     for (int i = argc - 1; i >= 0; i--) {
-  //       *esp -= 4;
-  //       int** int_esp = (int**) esp;
-  //       **int_esp = word_addresses[i];
-  //     }
-
-  //     // puts argv on the stack
-  //     *esp -= 4;
-  //     int** int_esp = (int**) esp;
-  //     **int_esp = (int) *esp + 4;
-
-  //     // puts argc on the stack
-  //     *esp -= 4;
-  //     **esp = argc;
-
-  //     // puts "return address" on the stack
-  //     *esp -= 4;
-  //     **esp = 0;
-      
-  //   } else {
-  //     palloc_free_page(kpage);
-  //   }
-  // }
-  // return success;
+  return true;
   
 }
 
@@ -799,6 +750,7 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
 
   tid_t tid;
   
+  // we need to free this sometime
   struct start_pthread_arg* start_arg = palloc_get_page(0);
   if (start_arg == NULL) {
     return -1; 
@@ -806,6 +758,7 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
 
   start_arg->sf = sf;
   start_arg->tf = tf;
+  start_arg->pcb = thread_current()->pcb;
   start_arg->arg = arg;
   start_arg->success = false;
   sema_init(&(start_arg->sema), 0); // sema-ing starts at 0?
@@ -853,6 +806,8 @@ static void start_pthread(void* exec_) {
   struct start_pthread_arg* pt_arg = (struct start_pthread_arg*) exec_;
   stub_fun sf = pt_arg->sf;
   pthread_fun tf = pt_arg->tf;
+  // struct process* pcb = 
+  thread_current()->pcb = pt_arg->pcb;
   struct semaphore sema = pt_arg->sema;
   void* arg = pt_arg->arg;
 
@@ -867,7 +822,18 @@ static void start_pthread(void* exec_) {
   // thread_current()->pcb = some passed in arg;
 
   process_activate();
-  setup_thread(&if_.eip, &if_.esp);
+  success = setup_thread(&if_.eip, &if_.esp);
+  if_.eip = &pt_arg->sf;
+  thread_current()->user_stack_pointer = if_.esp;
+  if_.esp = (char *) if_.esp - 4;
+  char* sendhelp = (char*) if_.esp;
+  *sendhelp = arg;
+  if_.esp = (char *) if_.esp - 4;
+  sendhelp = (char*) if_.esp;
+  *sendhelp = tf;
+
+  asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
+  NOT_REACHED();
 }
 
 /* Waits for thread with TID to die, if that thread was spawned

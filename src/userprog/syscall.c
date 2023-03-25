@@ -336,5 +336,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = compute_e(args[1]);
   // } else if (args[0] == SYS_LOCK_INIT) {
   //   f->eax = lock_init_sys(args[1]);
+  } else if (args[0] == SYS_PT_CREATE) {
+    f->eax = pthread_execute(args[1], args[2], args[3]);
   }
 }

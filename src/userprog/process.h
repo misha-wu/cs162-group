@@ -61,6 +61,7 @@ struct join_struct {
 struct start_pthread_arg {  
   stub_fun sf;
   pthread_fun tf;
+  struct process* pcb;
   bool success; // not in design doc
   struct semaphore sema; // not in design doc
   void* arg; //can be NULL
