@@ -147,6 +147,9 @@ static void start_process(void* sp_arg) {
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
 
+    lock_init(&new_pcb->threads_list_lock);
+    lock_init(&new_pcb->join_list_lock);
+
     // calloc remaining structs? or not
   }
 
@@ -284,6 +287,8 @@ void process_exit(void) {
       close(i);
     }
   }
+
+  // TODO: free the join struct list
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
@@ -723,13 +728,16 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
 bool setup_thread(void (**eip)(void), void** esp) {
 
   uint8_t* vaddr = PHYS_BASE - PGSIZE;
-  while (vaddr > 0) {
-    if (pagedir_get_page(thread_current()->pcb->pagedir, vaddr)) {
+  int num_stack_pages = 0;
+  // TODO: check MAX_STACK_PAGES
+  while (vaddr > 0 && num_stack_pages < MAX_STACK_PAGES) {
+    if (pagedir_get_page(thread_current()->pcb->pagedir, vaddr) == NULL) {
       break;
     }
     vaddr = (char *) vaddr - PGSIZE;
+    num_stack_pages++;
   }
-  if (vaddr <= 0) {
+  if (vaddr <= 0 || num_stack_pages >= MAX_STACK_PAGES) {
     return false;
   }
   *esp = (char *) vaddr + PGSIZE;
@@ -738,7 +746,13 @@ bool setup_thread(void (**eip)(void), void** esp) {
   // bool success = false;
 
   kpage = palloc_get_page(PAL_USER | PAL_ZERO);
+  if (kpage == NULL) {
+    return false;
+  }
   bool success = install_page(vaddr, kpage, true);
+  if (!success) {
+    palloc_free_page(kpage);
+  }
   // if (kpage != NULL) {
   //   success = install_page(((uint8_t*)PHYS_BASE) - PGSIZE, kpage, true);
   // return true;
@@ -756,6 +770,240 @@ bool setup_thread(void (**eip)(void), void** esp) {
    */
 // tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { // return -1; // starter code}
 
+static void start_pthread_funsies(void* exec_);
+
+tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) { 
+  // char* fn_copy;
+  tid_t tid;
+
+  /* Make a copy of FILE_NAME.
+     Otherwise there's a race between the caller and load(). */
+  // fn_copy = palloc_get_page(0);
+  // if (fn_copy == NULL)
+  //   return -1;
+  // strlcpy(fn_copy, file_name, PGSIZE);
+
+  // struct process_status* child_status = palloc_get_page(0);
+  // if (child_status == NULL) {
+  //   palloc_free_page(fn_copy);
+  //   return -1; 
+  // }
+
+  // // initializes the child's process_status
+  // lock_init(&(child_status->lock));
+  // sema_init(&(child_status->sema), 0);
+  // child_status->ref_cnt = 2; 
+
+  // struct to pass in as an argument to start_process, since it only takes one void* argument
+  struct start_pthread_arg* sparg = palloc_get_page(0);
+  if (sparg == NULL) {
+    // palloc_free_page(fn_copy);
+    // palloc_free_page(child_status);
+    return -1; 
+  }
+  // stub_fun sf;
+  // pthread_fun tf;
+  // struct process* pcb;
+  // bool success; // not in design doc
+  // struct semaphore sema; // not in design doc
+  // void* arg; //can be NULL
+  sparg->sf = sf;
+  sparg->tf = tf;
+  sparg->pcb = thread_current()->pcb;
+  sema_init(&(sparg->sema), 0);
+
+
+  // arg -> file_name = fn_copy;
+  // arg -> child_status = child_status;
+
+  /* Create a new thread to execute FILE_NAME. */
+  tid = thread_create(thread_current()->name, PRI_DEFAULT, start_pthread_funsies, sparg);
+  sema_down(&(sparg->sema));
+  if (tid == TID_ERROR) {
+    palloc_free_page(sparg);
+    return TID_ERROR;
+    // palloc_free_page(fn_copy);
+    // palloc_free_page(child_status);
+    // palloc_free_page(arg);
+  }
+
+  struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
+
+  if (sema_and_thread == NULL) {
+    palloc_free_page(sparg);
+    // return -1;
+    return TID_ERROR;
+  }
+
+  sema_and_thread->tid = tid;
+  sema_init(&(sema_and_thread->join_sema), 1); // joining is allowed now?? not sure
+
+  lock_acquire(&(thread_current()->pcb->join_list_lock));
+  // add the new join struct to our join struct list
+  list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
+  lock_release(&(thread_current()->pcb->join_list_lock));
+
+  // if (tid == TID_ERROR || !child_status->load_success) {
+  //   return -1; 
+  // }
+  // child_status->pid = tid;
+
+  // struct thread* cur = thread_current();
+  // struct process* p = cur->pcb;
+  // // add child's process_status to our list of children
+  // list_push_back(&(p->children), &child_status->elem);
+  return tid;
+}
+
+static void start_pthread_funsies(void* exec_) {
+
+  struct start_pthread_arg* sparg = (struct start_pthread_arg*) exec_;
+  stub_fun sf = sparg->sf;
+  pthread_fun tf = sparg->tf;
+  thread_current()->pcb = sparg->pcb;
+
+  lock_acquire(&(sparg->pcb->threads_list_lock));
+  list_push_back(&(sparg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
+  lock_release(&(sparg->pcb->threads_list_lock));
+
+  void* arg = sparg->arg;
+
+  struct intr_frame if_;
+  bool success;
+  
+  memset(&if_, 0, sizeof if_);
+  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  if_.cs = SEL_UCSEG;
+  if_.eflags = FLAG_IF | FLAG_MBS;
+
+  process_activate();
+  success = setup_thread(&if_.eip, &if_.esp);
+
+  if (!success) {
+    // what happens here?
+    return TID_ERROR;
+  }
+
+  if_.eip = sparg->sf;
+  thread_current()->user_stack_pointer = if_.esp;
+
+  sema_up(&(sparg->sema));
+
+  // pushing arguments onto the stack (arg, then tf)
+  // are we supposed to do it character by character; then pointers to the args after?
+  if_.esp = (char *) if_.esp - 4;
+  int32_t* sendhelp = (int32_t*) if_.esp;
+  *sendhelp = arg;
+  if_.esp = (char *) if_.esp - 4;
+  sendhelp = (int32_t*) if_.esp;
+  // *sendhelp = &tf; ???
+  *sendhelp = tf;
+
+  // fake return address?
+  if_.esp = (char *) if_.esp - 4;
+  int32_t zero = 0;
+  sendhelp = (int32_t *) if_.esp;
+  *sendhelp = zero;
+
+  // *esp -= 4;
+  // int** int_esp = (int**) esp;
+  // **int_esp = (int) *esp + 4;
+
+  // sf(tf, arg);
+  asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
+  NOT_REACHED();
+
+
+  // char* file_name = arg->file_name;
+  // struct process_status* p_status = arg->child_status;
+  // struct thread* t = thread_current();
+  // struct intr_frame if_;
+  // bool success, pcb_success;
+
+  // /* Allocate process control block */
+  // struct process* new_pcb = malloc(sizeof(struct process));
+  // success = pcb_success = new_pcb != NULL;
+  
+  // /* Initialize process control block */
+  // if (success) {
+  //   new_pcb->my_own = p_status;
+  //   list_init(&(new_pcb->children));
+
+  //   // Ensure that timer_interrupt() -> schedule() -> process_activate()
+  //   // does not try to activate our uninitialized pagedir
+  //   new_pcb->pagedir = NULL;
+  //   t->pcb = new_pcb;
+
+  //   // Continue initializing the PCB as normal
+  //   t->pcb->main_thread = t;
+  //   strlcpy(t->pcb->process_name, t->name, sizeof t->name);
+
+  //   // our first available file descriptor is 3 because 0, 1, and 2 are reserved for stdin, stdout, stderr
+  //   new_pcb->fd_index = 3;
+  //   // set mappings of 0, 1, and 2 to null because they don't correspond to acutal files
+  //   new_pcb->fd_table[0] = NULL;
+  //   new_pcb->fd_table[1] = NULL;
+  //   new_pcb->fd_table[2] = NULL;
+
+  //   // USER THREADS initialization
+
+  //   list_init(&(new_pcb->threads_list));
+  //   list_init(&(new_pcb->join_list));
+  //   list_init(&(new_pcb->user_sema_list));
+  //   list_init(&(new_pcb->user_lock_list));
+  //   new_pcb->lock_counter = 0;
+  //   new_pcb->sema_counter = 0;
+
+    // calloc remaining structs? or not
+  // }
+
+  // /* Initialize interrupt frame and load executable. */
+  // if (success) {
+  //   memset(&if_, 0, sizeof if_);
+  //   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+  //   if_.cs = SEL_UCSEG;
+  //   if_.eflags = FLAG_IF | FLAG_MBS;
+
+  //   /* save our existing FPU of the current process in a temporary local 27-int array variable, 
+  //   initialize the FPU with fninit, save the contents of the FPU into the intr_frame struct, 
+  //   then restore the contents of our FPU from the temporary variable */
+  //   uint32_t tempfpu[27];
+  //   asm volatile ("fsave (%0); fninit; fsave (%1); frstor (%0)" : : "g"(&tempfpu), "g"(&if_.fpu));
+  //   success = load(file_name, &if_.eip, &if_.esp);
+  // }
+
+  // p_status->load_success = success;
+  // sema_up(&(p_status->sema));
+
+  // /* Handle failure with succesful PCB malloc. Must free the PCB */
+  // if (!success && pcb_success) {
+  //   // Avoid race where PCB is freed before t->pcb is set to NULL
+  //   // If this happens, then an unfortuantely timed timer interrupt
+  //   // can try to activate the pagedir, but it is now freed memory
+  //   struct process* pcb_to_free = t->pcb;
+  //   t->pcb = NULL;
+  //   free(pcb_to_free);
+  // }
+
+  // /* Clean up. Exit on failure or jump to userspace */
+  // palloc_free_page(file_name);
+  // palloc_free_page(sp_arg);
+  // if (!success) {
+  //   palloc_free_page(p_status);
+  //   thread_exit();
+  // }
+
+  // /* Start the user process by simulating a return from an
+  //    interrupt, implemented by intr_exit (in
+  //    threads/intr-stubs.S).  Because intr_exit takes all of its
+  //    arguments on the stack in the form of a `struct intr_frame',
+  //    we just point the stack pointer (%esp) to our stack frame
+  //    and jump to it. */
+  // asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
+  // NOT_REACHED();
+
+}
+
 tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
 
   tid_t tid;
@@ -772,15 +1020,21 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
   start_arg->arg = arg;
   start_arg->success = false;
   sema_init(&(start_arg->sema), 0); // sema-ing starts at 0?
+  // sema_down(&(start_arg->sema));
 
   // char curr_thread_name[] = thread_current()->name;
   // char kt_name[] = "_kernel";
   // strcat(curr_thread_name, kt_name);
   char* curr_thread_name = thread_current()->name;
 
+  printf("called thread_create\n");
+  sema_init(&(start_arg->sema), 0);
   tid = thread_create(curr_thread_name, PRI_DEFAULT, start_pthread, start_arg);
+  printf("finished from thread_create\n");
 
+  printf("sema down prbly doomed\n");
   sema_down(&(start_arg->sema));
+  printf("sema down not doomed\n");
 
   if (tid == TID_ERROR || !start_arg->success) {
     palloc_free_page(start_arg);
@@ -840,24 +1094,34 @@ static void start_pthread(void* exec_) {
   if (!success) {
     // what happens here?
   }
+  // sema_init(&(pt_arg->sema), 0);
+  sema_up(&pt_arg->sema);
+  printf("sema up-ed successfully%n");
 
+  // if_.eip = &pt_arg->sf; ????
   if_.eip = &pt_arg->sf;
   thread_current()->user_stack_pointer = if_.esp;
 
   // pushing arguments onto the stack (arg, then tf)
   // are we supposed to do it character by character; then pointers to the args after?
   if_.esp = (char *) if_.esp - 4;
-  char* sendhelp = (char*) if_.esp;
+  int32_t* sendhelp = (int32_t*) if_.esp;
   *sendhelp = arg;
   if_.esp = (char *) if_.esp - 4;
-  sendhelp = (char*) if_.esp;
+  sendhelp = (int32_t*) if_.esp;
+  // *sendhelp = &tf; ???
   *sendhelp = tf;
 
   // fake return address?
   if_.esp = (char *) if_.esp - 4;
   int32_t zero = 0;
-  sendhelp = (char *) if_.esp;
+  sendhelp = (int32_t *) if_.esp;
   *sendhelp = zero;
+
+  // *esp -= 4;
+  // int** int_esp = (int**) esp;
+  // **int_esp = (int) *esp + 4;
+
 
   asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
   NOT_REACHED();
@@ -887,21 +1151,33 @@ tid_t pthread_join(tid_t tid) {
   if (!found) {
     return TID_ERROR;
   }
-  lock_acquire(&(t->has_been_joined_lock));
-  if (t->has_been_joined) {
-    lock_release(&(t->has_been_joined_lock));
-    return TID_ERROR;
-  }
-  t->has_been_joined = true;
-  lock_release(&(t->has_been_joined_lock));
+
+  // lock_acquire(&(t->has_been_joined_lock));
+  // if (t->has_been_joined) {
+  //   lock_release(&(t->has_been_joined_lock));
+  //   return TID_ERROR;
+  // }
+  // t->has_been_joined = true;
+  // lock_release(&(t->has_been_joined_lock));
 
 
+  struct join_struct* join = NULL;
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
-    struct join_struct* join = list_entry(e, struct join_struct, elem);
+    join = list_entry(e, struct join_struct, elem);
     if (thread_current()->tid == join->tid) {
       sema_down(&(join->join_sema));
     }
   }
+
+  lock_acquire(&p->join_list_lock);
+  if (join == NULL) {
+    // this probably should not happen???
+    printf("we have problems!!!");
+    lock_release(&p->join_list_lock);
+    return TID_ERROR;
+  }
+  list_remove(&join->elem);
+  lock_release(&p->join_list_lock);
 
   return tid; // check return LOL
 }
@@ -918,7 +1194,32 @@ tid_t pthread_join(tid_t tid) {
 void pthread_exit(void) {
 
   struct thread* t = thread_current();
-  free(t->user_stack_pointer);
+  struct process* p = t->pcb;
+  void* vaddr = pg_round_down(t->user_stack_pointer);
+  void* page = pagedir_get_page(t->pcb->pagedir, vaddr);
+  pagedir_clear_page(t->pcb->pagedir, vaddr);
+  // palloc_free_page(page);
+
+  struct list_elem* e;
+
+  // iterate through our list of children
+  for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
+    struct join_struct* js = list_entry(e, struct join_struct, elem);
+    if (js->tid == t->tid) {
+      sema_up(&js->join_sema);
+    }
+  }
+  
+  // if (is_main_thread(t, p)) {
+  //   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
+  //     struct join_struct* js = list_entry(e, struct join_struct, elem);
+  //     pthread_join(js->tid);
+  //   }
+  //   exit_helper(0);
+  // } else {
+  thread_exit();
+  // }
+  // free(t->user_stack_pointer);
 
   // pagedir_clear_page(t->pcb->pagedir, );
   // palloc_free_page();
@@ -933,4 +1234,19 @@ void pthread_exit(void) {
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-void pthread_exit_main(void) {}
+void pthread_exit_main(void) {
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+  struct list_elem* e;
+  for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
+    struct join_struct* js = list_entry(e, struct join_struct, elem);
+    if (js->tid == t->tid) {
+      sema_up(&js->join_sema);
+    }
+  }
+  for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
+    struct join_struct* js = list_entry(e, struct join_struct, elem);
+    pthread_join(js->tid);
+  }
+  exit_helper(0);
+}

@@ -35,10 +35,12 @@ struct process {
 
   // USER THREADS
   
-  int num_pages_so_far; // keeps track of how many pages there have been so far created by user threads, initialize to 1 for the first user thread
-  struct lock num_pages_so_far_lock; // lock num_pages_so_far from being modified by multiple threads simulateanously
+  // int num_pages_so_far; // keeps track of how many pages there have been so far created by user threads, initialize to 1 for the first user thread
+  // struct lock num_pages_so_far_lock; // lock num_pages_so_far from being modified by multiple threads simulateanously
   struct list threads_list; // a list of all the threads under this process
+  struct lock threads_list_lock;
   struct list join_list;  // a list of join_struct
+  struct lock join_list_lock;
 
   struct list user_lock_list; //list of WO_DE_LOCK_t*
   struct list user_sema_list; //list of WO_DE_SEMA_t*
