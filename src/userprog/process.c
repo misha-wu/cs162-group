@@ -1152,7 +1152,9 @@ tid_t pthread_join(tid_t tid) {
     }
   }
   if (!found) {
-    return TID_ERROR;
+    // return TID_ERROR;
+    // ??????
+    return 0;
   }
 
   // lock_acquire(&(t->has_been_joined_lock));
