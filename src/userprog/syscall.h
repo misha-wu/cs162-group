@@ -13,7 +13,7 @@ typedef struct WO_DE_LOCK {
   lock_t user_lock; //user lock
   struct list_elem lock_elem;
 
-  struct lock mutex_lock;
+  // struct lock mutex_lock;
 } WO_DE_LOCK_t;
 
 typedef struct WO_DE_SEMA {
@@ -21,7 +21,7 @@ typedef struct WO_DE_SEMA {
   sema_t user_sema; //user lock
   int value;
   struct list_elem sema_elem;
-  struct lock mutex_lock;
+  // struct lock mutex_lock;
 } WO_DE_SEMA_t;
 
 // typedef struct WO_DE_LOCK {

@@ -247,7 +247,7 @@ double compute_e (int n) {
 // typedef char sema_t;
 
 bool lock_init_sys(lock_t* lock) {
-  if (*lock == NULL) {
+  if (lock == NULL) {
     return false;
   }
   struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
@@ -260,6 +260,44 @@ bool lock_init_sys(lock_t* lock) {
   lock_init(&mylock->kernel_lock);
   list_push_back(&p->user_lock_list, &mylock->lock_elem);
 
+  return true;
+}
+
+
+WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
+  if (lock == NULL) { // ??? dereference
+    return NULL;
+  }
+  WO_DE_LOCK_t* my_lock = NULL;
+  struct list_elem* e;
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+
+  for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list); e = list_next(e)) {
+    WO_DE_LOCK_t* l = list_entry(e, struct WO_DE_LOCK, lock_elem);
+    if (l->user_lock == *lock) {
+      my_lock = l;
+      break;
+    }
+  }
+  return my_lock;
+}
+
+
+bool lock_acquire_sys(lock_t* lock) {
+  WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
+  enum intr_level old_level;
+  old_level = intr_disable();
+  if(my_lock == NULL) {
+    intr_set_level(old_level);
+    return false;
+  }
+  if(lock_held_by_current_thread(&(my_lock->kernel_lock))) {
+    intr_set_level(old_level);
+    return false;
+  }
+  lock_acquire(&(my_lock->kernel_lock));
+  intr_set_level(old_level);
   return true;
 }
 
@@ -338,6 +376,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = compute_e(args[1]);
   } else if (args[0] == SYS_LOCK_INIT) {
     f->eax = lock_init_sys(args[1]);
+  } else if (args[0] == SYS_LOCK_ACQUIRE) {
+    f->eax = lock_acquire_sys(args[1]);
   } else if (args[0] == SYS_PT_CREATE) {
     f->eax = sys_pthread_create(args[1], args[2], args[3]);
   } else if (args[0] == SYS_PT_EXIT) {

@@ -149,6 +149,8 @@ static void start_process(void* sp_arg) {
 
     lock_init(&new_pcb->threads_list_lock);
     lock_init(&new_pcb->join_list_lock);
+    lock_init(&new_pcb->lock_counter_lock);
+    lock_init(&new_pcb->sema_counter_lock);
 
     // calloc remaining structs? or not
   }
