@@ -750,6 +750,7 @@ bool setup_thread(void (**eip)(void), void** esp) {
     return false;
   }
   bool success = install_page(vaddr, kpage, true);
+  // printf("installed a page with uaddr %x and kpage %x\n", vaddr, kpage);
   if (!success) {
     palloc_free_page(kpage);
   }
@@ -810,6 +811,7 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   sparg->sf = sf;
   sparg->tf = tf;
   sparg->pcb = thread_current()->pcb;
+  sparg->arg = arg;
   sema_init(&(sparg->sema), 0);
 
 
@@ -827,7 +829,8 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
     // palloc_free_page(arg);
   }
 
-  struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
+  // struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
+  struct join_struct* sema_and_thread = palloc_get_page(0);
 
   if (sema_and_thread == NULL) {
     palloc_free_page(sparg);
@@ -1195,10 +1198,12 @@ void pthread_exit(void) {
 
   struct thread* t = thread_current();
   struct process* p = t->pcb;
-  void* vaddr = pg_round_down(t->user_stack_pointer);
+  void* vaddr = pg_round_down(t->user_stack_pointer) - PGSIZE;
   void* page = pagedir_get_page(t->pcb->pagedir, vaddr);
+  // this is very broken :')
+  // printf("we would like to free page with vaddr %x and kpage %x\n", vaddr, page);
   pagedir_clear_page(t->pcb->pagedir, vaddr);
-  // palloc_free_page(page);
+  palloc_free_page(page);
 
   struct list_elem* e;
 
