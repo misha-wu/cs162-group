@@ -20,6 +20,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "userprog/syscall.h"
+
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
@@ -291,6 +293,23 @@ void process_exit(void) {
   }
 
   // TODO: free the join struct list
+  for (e = list_begin(&p->join_list); e != list_end(&p->join_list);) {
+    struct join_struct* js = list_entry(e, struct join_struct, elem);
+    struct list_elem* next = list_next(e);
+    free(js);
+    e = next;
+  }
+
+  // free all the locks
+  for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list);) {
+    struct WO_DE_LOCK* l = list_entry(e, struct WO_DE_LOCK, lock_elem);
+    struct list_elem* next = list_next(e);
+    if (lock_held_by_current_thread(&(l->kernel_lock))){
+      lock_release(&(l->kernel_lock));
+    } 
+    free(l);
+    e = next;
+  }
 
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */

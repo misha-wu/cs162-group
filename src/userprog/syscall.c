@@ -265,7 +265,7 @@ bool lock_init_sys(lock_t* lock) {
 
 
 WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
-  if (lock == NULL) { // ??? dereference
+  if (lock == NULL) {
     return NULL;
   }
   WO_DE_LOCK_t* my_lock = NULL;
