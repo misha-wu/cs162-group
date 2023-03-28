@@ -246,20 +246,22 @@ double compute_e (int n) {
 // typedef char lock_t;
 // typedef char sema_t;
 
-// bool lock_init_sys(lock_t* lock) {
-//   if (lock == NULL) {
-    
-//   }
-//   struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
-//   struct process* p = process_current();
-//   lock_acquire(&p->lock_counter_lock);
-//   *lock = p->lock_counter;
-//   p->lock_counter++;
-//   lock_release(&p->lock_counter_lock);
-//   mylock->user_lock = *lock;
-//   lock_init(&mylock->kernel_lock);
-//   list_push_back(&p->user_lock_list, &mylock->lock_elem);
-// }
+bool lock_init_sys(lock_t* lock) {
+  if (*lock == NULL) {
+    return false;
+  }
+  struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
+  struct process* p = process_current();
+  lock_acquire(&p->lock_counter_lock);
+  *lock = p->lock_counter;
+  p->lock_counter++;
+  lock_release(&p->lock_counter_lock);
+  mylock->user_lock = *lock;
+  lock_init(&mylock->kernel_lock);
+  list_push_back(&p->user_lock_list, &mylock->lock_elem);
+
+  return true;
+}
 
 // USER THREADS
 tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
@@ -334,8 +336,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = write(fd, buffer, size);
   } else if (args[0] == SYS_COMPUTE_E) {
     f->eax = compute_e(args[1]);
-  // } else if (args[0] == SYS_LOCK_INIT) {
-  //   f->eax = lock_init_sys(args[1]);
+  } else if (args[0] == SYS_LOCK_INIT) {
+    f->eax = lock_init_sys(args[1]);
   } else if (args[0] == SYS_PT_CREATE) {
     f->eax = sys_pthread_create(args[1], args[2], args[3]);
   } else if (args[0] == SYS_PT_EXIT) {
