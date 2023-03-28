@@ -293,12 +293,12 @@ void process_exit(void) {
   }
 
   // TODO: free the join struct list
-  for (e = list_begin(&p->join_list); e != list_end(&p->join_list);) {
-    struct join_struct* js = list_entry(e, struct join_struct, elem);
-    struct list_elem* next = list_next(e);
-    free(js);
-    e = next;
-  }
+  // for (e = list_begin(&p->join_list); e != list_end(&p->join_list);) {
+  //   struct join_struct* js = list_entry(e, struct join_struct, elem);
+  //   struct list_elem* next = list_next(e);
+  //   free(js);
+  //   e = next;
+  // }
 
   // free all the locks
   for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list);) {
