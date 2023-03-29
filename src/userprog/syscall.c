@@ -311,7 +311,7 @@ void sys_pthread_exit(void) {
 }
 
 tid_t sys_pthread_join(tid_t tid) {
-
+  return pthread_join(tid);
 }
 
 /*
@@ -382,5 +382,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = sys_pthread_create(args[1], args[2], args[3]);
   } else if (args[0] == SYS_PT_EXIT) {
     sys_pthread_exit();
+  } else if (args[0] == SYS_PT_JOIN) {
+    f->eax = sys_pthread_join(args[1]);
   }
 }
