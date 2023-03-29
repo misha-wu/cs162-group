@@ -20,6 +20,8 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 
+#include "userprog/syscall.h"
+
 static thread_func start_process NO_RETURN;
 static thread_func start_pthread NO_RETURN;
 static bool load(const char* file_name, void (**eip)(void), void** esp);
@@ -150,6 +152,9 @@ static void start_process(void* sp_arg) {
     lock_init(&new_pcb->threads_list_lock);
     lock_init(&new_pcb->join_list_lock);
 
+    lock_init(&new_pcb->lock_counter_lock);
+    lock_init(&new_pcb->sema_counter_lock);
+
     // calloc remaining structs? or not
   }
 
@@ -278,6 +283,25 @@ void process_exit(void) {
     struct process_status* p_status = list_entry(e, struct process_status, elem);
     struct list_elem* next = list_next(e);
     decrement_and_mayhap_free(p_status);
+    e = next;
+  }
+
+    // TODO: free the join struct list
+  for (e = list_begin(&p->join_list); e != list_end(&p->join_list);) {
+    struct join_struct* js = list_entry(e, struct join_struct, elem);
+    struct list_elem* next = list_next(e);
+    palloc_free_page(js);
+    e = next;
+  }
+
+  // free all the locks
+  for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list);) {
+    struct WO_DE_LOCK* l = list_entry(e, struct WO_DE_LOCK, lock_elem);
+    struct list_elem* next = list_next(e);
+    if (lock_held_by_current_thread(&(l->kernel_lock))){
+      lock_release(&(l->kernel_lock));
+    } 
+    free(l);
     e = next;
   }
 
@@ -869,6 +893,11 @@ static void start_pthread_funsies(void* exec_) {
   list_push_back(&(sparg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
   lock_release(&(sparg->pcb->threads_list_lock));
 
+  struct list_elem *e;
+  for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
+
+  }
+
   void* arg = sparg->arg;
 
   struct intr_frame if_;
@@ -913,6 +942,11 @@ static void start_pthread_funsies(void* exec_) {
   // **int_esp = (int) *esp + 4;
 
   // sf(tf, arg);
+  // struct list_elem *e;
+  for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
+
+  }
+
   asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
   NOT_REACHED();
 
@@ -1141,30 +1175,24 @@ static void start_pthread(void* exec_) {
 tid_t pthread_join(tid_t tid) {
   struct process* p = thread_current()->pcb;
   struct list_elem* e;
+  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+
+  // }
   bool found = false;
   struct thread* t;
-  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-    struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
-    if (tid == curr_t->tid) {
-      found = true;
-      t = curr_t;
-      break;
-    }
-  }
-  if (!found) {
-    // return TID_ERROR;
-    // ??????
-    return 0;
-  }
-
-  // lock_acquire(&(t->has_been_joined_lock));
-  // if (t->has_been_joined) {
-  //   lock_release(&(t->has_been_joined_lock));
-  //   return TID_ERROR;
+  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+  //   struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
+  //   if (tid == curr_t->tid) {
+  //     found = true;
+  //     t = curr_t;
+  //     break;
+  //   }
   // }
-  // t->has_been_joined = true;
-  // lock_release(&(t->has_been_joined_lock));
-
+  // if (!found) {
+  //   // return TID_ERROR;
+  //   // ??????
+  //   return 0;
+  // }
 
   struct join_struct* join = NULL;
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
@@ -1184,7 +1212,8 @@ tid_t pthread_join(tid_t tid) {
   list_remove(&join->elem);
   lock_release(&p->join_list_lock);
 
-  return tid; // check return LOL
+  return 0;
+  // return tid; // check return LOL
 }
 
 /* Free the current thread's resources. Most resources will
@@ -1200,6 +1229,11 @@ void pthread_exit(void) {
 
   struct thread* t = thread_current();
   struct process* p = t->pcb;
+
+  if (is_main_thread(t, p)) {
+    pthread_exit_main();
+    return;
+  }
   void* vaddr = pg_round_down(t->user_stack_pointer) - PGSIZE;
   void* page = pagedir_get_page(t->pcb->pagedir, vaddr);
   // this is very broken :')
@@ -1224,7 +1258,14 @@ void pthread_exit(void) {
   //   }
   //   exit_helper(0);
   // } else {
+  // struct list_elem *e;
+  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+
+  }
   thread_exit();
+  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+
+  }
   // }
   // free(t->user_stack_pointer);
 
@@ -1245,6 +1286,9 @@ void pthread_exit_main(void) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
   struct list_elem* e;
+  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+
+  }
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
@@ -1254,6 +1298,9 @@ void pthread_exit_main(void) {
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     pthread_join(js->tid);
+  }
+  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+
   }
   exit_helper(0);
 }
