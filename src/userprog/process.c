@@ -1241,8 +1241,10 @@ void pthread_exit(void) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
 
+  lock_acquire(&(sparg->pcb->threads_list_lock));
   list_remove(&t->im_a_thread_elem);
-
+  lock_release(&(sparg->pcb->threads_list_lock));
+  
   if (is_main_thread(t, p)) {
     pthread_exit_main();
     return;
