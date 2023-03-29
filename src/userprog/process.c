@@ -305,6 +305,17 @@ void process_exit(void) {
     e = next;
   }
 
+  for (e = list_begin(&p->user_sema_list); e != list_end(&p->user_sema_list);) {
+    struct WO_DE_SEMA* s = list_entry(e, struct WO_DE_SEMA, sema_elem);
+    struct list_elem* next = list_next(e);
+    // if (lock_held_by_current_thread(&(l->kernel_lock))){
+    //   lock_release(&(l->kernel_lock));
+    // } 
+    free(s);
+    e = next;
+  }
+
+
   // close file descriptors
   for (int i = 0; i < 256; i++) {
     if (p->fd_table[i] != NULL) {
