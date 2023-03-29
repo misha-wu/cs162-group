@@ -246,60 +246,20 @@ double compute_e (int n) {
 // typedef char lock_t;
 // typedef char sema_t;
 
-bool lock_init_sys(lock_t* lock) {
-  if (lock == NULL) {
-    return false;
-  }
-  struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
-  struct process* p = process_current();
-  lock_acquire(&p->lock_counter_lock);
-  *lock = p->lock_counter;
-  p->lock_counter++;
-  lock_release(&p->lock_counter_lock);
-  mylock->user_lock = *lock;
-  lock_init(&mylock->kernel_lock);
-  list_push_back(&p->user_lock_list, &mylock->lock_elem);
-
-  return true;
-}
-
-
-WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
-  if (lock == NULL) {
-    return NULL;
-  }
-  WO_DE_LOCK_t* my_lock = NULL;
-  struct list_elem* e;
-  struct thread* t = thread_current();
-  struct process* p = t->pcb;
-
-  for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list); e = list_next(e)) {
-    WO_DE_LOCK_t* l = list_entry(e, struct WO_DE_LOCK, lock_elem);
-    if (l->user_lock == *lock) {
-      my_lock = l;
-      break;
-    }
-  }
-  return my_lock;
-}
-
-
-bool lock_acquire_sys(lock_t* lock) {
-  WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
-  enum intr_level old_level;
-  old_level = intr_disable();
-  if(my_lock == NULL) {
-    intr_set_level(old_level);
-    return false;
-  }
-  if(lock_held_by_current_thread(&(my_lock->kernel_lock))) {
-    intr_set_level(old_level);
-    return false;
-  }
-  lock_acquire(&(my_lock->kernel_lock));
-  intr_set_level(old_level);
-  return true;
-}
+// bool lock_init_sys(lock_t* lock) {
+//   if (lock == NULL) {
+    
+//   }
+//   struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
+//   struct process* p = process_current();
+//   lock_acquire(&p->lock_counter_lock);
+//   *lock = p->lock_counter;
+//   p->lock_counter++;
+//   lock_release(&p->lock_counter_lock);
+//   mylock->user_lock = *lock;
+//   lock_init(&mylock->kernel_lock);
+//   list_push_back(&p->user_lock_list, &mylock->lock_elem);
+// }
 
 bool lock_init_sys(lock_t* lock) {
   // if (*lock == NULL) {
