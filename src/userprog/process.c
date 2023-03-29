@@ -155,6 +155,27 @@ static void start_process(void* sp_arg) {
     lock_init(&new_pcb->lock_counter_lock);
     lock_init(&new_pcb->sema_counter_lock);
 
+
+    struct join_struct* sema_and_thread = palloc_get_page(0);
+
+    if (sema_and_thread == NULL) {
+      printf("we have problems!!! in sema nad thread");
+      // what do we do here??? TODO maybe multimoo
+      // palloc_free_page(sparg);
+      return TID_ERROR;
+    }
+
+    sema_and_thread->tid = t->tid;
+    sema_init(&(sema_and_thread->join_sema), 0);
+
+    lock_acquire(&(new_pcb->join_list_lock));
+    list_push_back(&(new_pcb->join_list), &(sema_and_thread->elem));
+    lock_release(&(new_pcb->join_list_lock));
+
+    lock_acquire(&(new_pcb->threads_list_lock));
+    list_push_back(&(new_pcb->threads_list), &(t->im_a_thread_elem));
+    lock_release(&(new_pcb->threads_list_lock));
+
     // calloc remaining structs? or not
   }
 
@@ -859,37 +880,23 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   if (tid == TID_ERROR) {
     palloc_free_page(sparg);
     return TID_ERROR;
-    // palloc_free_page(fn_copy);
-    // palloc_free_page(child_status);
-    // palloc_free_page(arg);
   }
 
-  // struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
   struct join_struct* sema_and_thread = palloc_get_page(0);
 
   if (sema_and_thread == NULL) {
     palloc_free_page(sparg);
-    // return -1;
     return TID_ERROR;
   }
 
   sema_and_thread->tid = tid;
-  sema_init(&(sema_and_thread->join_sema), 1); // joining is allowed now?? not sure
+  sema_init(&(sema_and_thread->join_sema), 0); // joining is allowed now?? not sure
 
   lock_acquire(&(thread_current()->pcb->join_list_lock));
   // add the new join struct to our join struct list
   list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
   lock_release(&(thread_current()->pcb->join_list_lock));
 
-  // if (tid == TID_ERROR || !child_status->load_success) {
-  //   return -1; 
-  // }
-  // child_status->pid = tid;
-
-  // struct thread* cur = thread_current();
-  // struct process* p = cur->pcb;
-  // // add child's process_status to our list of children
-  // list_push_back(&(p->children), &child_status->elem);
   return tid;
 }
 
@@ -1201,14 +1208,14 @@ tid_t pthread_join(tid_t tid) {
   }
   if (!found) {
     // return TID_ERROR;
-    // ??????
+    // ?????? this seems quite sus TODO
     return 0;
   }
 
   struct join_struct* join = NULL;
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
-    if (thread_current()->tid == join->tid) {
+    if (tid == join->tid) {
       sema_down(&(join->join_sema));
     }
   }
@@ -1223,8 +1230,8 @@ tid_t pthread_join(tid_t tid) {
   list_remove(&join->elem);
   lock_release(&p->join_list_lock);
 
-  return 0;
-  // return tid; // check return LOL
+  // return 0;
+  return tid; // check return LOL
 }
 
 /* Free the current thread's resources. Most resources will
