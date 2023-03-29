@@ -901,8 +901,11 @@ static void start_pthread_funsies(void* exec_) {
   thread_current()->pcb = sparg->pcb;
 
   lock_acquire(&(sparg->pcb->threads_list_lock));
+  // enum intr_level old_level = intr_disable();
+  
   list_push_back(&(sparg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
   lock_release(&(sparg->pcb->threads_list_lock));
+  // intr_set_level(old_level);
 
   struct list_elem *e;
   for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
@@ -954,9 +957,6 @@ static void start_pthread_funsies(void* exec_) {
 
   // sf(tf, arg);
   // struct list_elem *e;
-  for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
-
-  }
 
   asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
   NOT_REACHED();
@@ -1052,58 +1052,58 @@ static void start_pthread_funsies(void* exec_) {
 
 }
 
-tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
+// tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
 
-  tid_t tid;
+//   tid_t tid;
   
-  // we need to free this sometime
-  struct start_pthread_arg* start_arg = palloc_get_page(0);
-  if (start_arg == NULL) {
-    return -1; 
-  }
+//   // we need to free this sometime
+//   struct start_pthread_arg* start_arg = palloc_get_page(0);
+//   if (start_arg == NULL) {
+//     return -1; 
+//   }
 
-  start_arg->sf = sf;
-  start_arg->tf = tf;
-  start_arg->pcb = thread_current()->pcb;
-  start_arg->arg = arg;
-  start_arg->success = false;
-  sema_init(&(start_arg->sema), 0); // sema-ing starts at 0?
-  // sema_down(&(start_arg->sema));
+//   start_arg->sf = sf;
+//   start_arg->tf = tf;
+//   start_arg->pcb = thread_current()->pcb;
+//   start_arg->arg = arg;
+//   start_arg->success = false;
+//   sema_init(&(start_arg->sema), 0); // sema-ing starts at 0?
+//   // sema_down(&(start_arg->sema));
 
-  // char curr_thread_name[] = thread_current()->name;
-  // char kt_name[] = "_kernel";
-  // strcat(curr_thread_name, kt_name);
-  char* curr_thread_name = thread_current()->name;
+//   // char curr_thread_name[] = thread_current()->name;
+//   // char kt_name[] = "_kernel";
+//   // strcat(curr_thread_name, kt_name);
+//   char* curr_thread_name = thread_current()->name;
 
-  printf("called thread_create\n");
-  sema_init(&(start_arg->sema), 0);
-  tid = thread_create(curr_thread_name, PRI_DEFAULT, start_pthread, start_arg);
-  printf("finished from thread_create\n");
+//   printf("called thread_create\n");
+//   sema_init(&(start_arg->sema), 0);
+//   tid = thread_create(curr_thread_name, PRI_DEFAULT, start_pthread, start_arg);
+//   printf("finished from thread_create\n");
 
-  printf("sema down prbly doomed\n");
-  sema_down(&(start_arg->sema));
-  printf("sema down not doomed\n");
+//   printf("sema down prbly doomed\n");
+//   sema_down(&(start_arg->sema));
+//   printf("sema down not doomed\n");
 
-  if (tid == TID_ERROR || !start_arg->success) {
-    palloc_free_page(start_arg);
-    return -1;
-  }
+//   if (tid == TID_ERROR || !start_arg->success) {
+//     palloc_free_page(start_arg);
+//     return -1;
+//   }
 
-  struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
+//   struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
 
-  if (sema_and_thread == NULL) {
-    palloc_free_page(start_arg);
-    return -1;
-  }
+//   if (sema_and_thread == NULL) {
+//     palloc_free_page(start_arg);
+//     return -1;
+//   }
 
-  sema_and_thread->tid = tid;
-  sema_init(&(sema_and_thread->join_sema), 1); // joining is allowed now?? not sure
+//   sema_and_thread->tid = tid;
+//   sema_init(&(sema_and_thread->join_sema), 1); // joining is allowed now?? not sure
 
-  // add the new join struct to our join struct list
-  list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
+//   // add the new join struct to our join struct list
+//   list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
 
-  return tid;
-}
+//   return tid;
+// }
 
 /* A thread function that creates a new user thread and starts it
    running. Responsible for adding itself to the list of threads in
@@ -1112,68 +1112,68 @@ tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) {
    This function will be implemented in Project 2: Multithreading and
    should be similar to start_process (). For now, it does nothing. */
 // static void start_pthread(void* exec_ UNUSED) {}
-static void start_pthread(void* exec_) {
+// static void start_pthread(void* exec_) {
 
-  // unpack arguments
-  struct start_pthread_arg* pt_arg = (struct start_pthread_arg*) exec_;
-  stub_fun sf = pt_arg->sf;
-  pthread_fun tf = pt_arg->tf;
+//   // unpack arguments
+//   struct start_pthread_arg* pt_arg = (struct start_pthread_arg*) exec_;
+//   stub_fun sf = pt_arg->sf;
+//   pthread_fun tf = pt_arg->tf;
   
-  thread_current()->pcb = pt_arg->pcb;
+//   thread_current()->pcb = pt_arg->pcb;
 
-  list_push_back(&(pt_arg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
+//   list_push_back(&(pt_arg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
 
-  struct semaphore sema = pt_arg->sema;
-  void* arg = pt_arg->arg;
+//   struct semaphore sema = pt_arg->sema;
+//   void* arg = pt_arg->arg;
 
-  struct intr_frame if_;
-  bool success;
+//   struct intr_frame if_;
+//   bool success;
   
-  memset(&if_, 0, sizeof if_);
-  if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
-  if_.cs = SEL_UCSEG;
-  if_.eflags = FLAG_IF | FLAG_MBS;
+//   memset(&if_, 0, sizeof if_);
+//   if_.gs = if_.fs = if_.es = if_.ds = if_.ss = SEL_UDSEG;
+//   if_.cs = SEL_UCSEG;
+//   if_.eflags = FLAG_IF | FLAG_MBS;
   
-  // thread_current()->pcb = some passed in arg;
+//   // thread_current()->pcb = some passed in arg;
 
-  process_activate();
-  success = setup_thread(&if_.eip, &if_.esp);
+//   process_activate();
+//   success = setup_thread(&if_.eip, &if_.esp);
 
-  if (!success) {
-    // what happens here?
-  }
-  // sema_init(&(pt_arg->sema), 0);
-  sema_up(&pt_arg->sema);
-  printf("sema up-ed successfully%n");
+//   if (!success) {
+//     // what happens here?
+//   }
+//   // sema_init(&(pt_arg->sema), 0);
+//   sema_up(&pt_arg->sema);
+//   printf("sema up-ed successfully%n");
 
-  // if_.eip = &pt_arg->sf; ????
-  if_.eip = &pt_arg->sf;
-  thread_current()->user_stack_pointer = if_.esp;
+//   // if_.eip = &pt_arg->sf; ????
+//   if_.eip = &pt_arg->sf;
+//   thread_current()->user_stack_pointer = if_.esp;
 
-  // pushing arguments onto the stack (arg, then tf)
-  // are we supposed to do it character by character; then pointers to the args after?
-  if_.esp = (char *) if_.esp - 4;
-  int32_t* sendhelp = (int32_t*) if_.esp;
-  *sendhelp = arg;
-  if_.esp = (char *) if_.esp - 4;
-  sendhelp = (int32_t*) if_.esp;
-  // *sendhelp = &tf; ???
-  *sendhelp = tf;
+//   // pushing arguments onto the stack (arg, then tf)
+//   // are we supposed to do it character by character; then pointers to the args after?
+//   if_.esp = (char *) if_.esp - 4;
+//   int32_t* sendhelp = (int32_t*) if_.esp;
+//   *sendhelp = arg;
+//   if_.esp = (char *) if_.esp - 4;
+//   sendhelp = (int32_t*) if_.esp;
+//   // *sendhelp = &tf; ???
+//   *sendhelp = tf;
 
-  // fake return address?
-  if_.esp = (char *) if_.esp - 4;
-  int32_t zero = 0;
-  sendhelp = (int32_t *) if_.esp;
-  *sendhelp = zero;
+//   // fake return address?
+//   if_.esp = (char *) if_.esp - 4;
+//   int32_t zero = 0;
+//   sendhelp = (int32_t *) if_.esp;
+//   *sendhelp = zero;
 
-  // *esp -= 4;
-  // int** int_esp = (int**) esp;
-  // **int_esp = (int) *esp + 4;
+//   // *esp -= 4;
+//   // int** int_esp = (int**) esp;
+//   // **int_esp = (int) *esp + 4;
 
 
-  asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
-  NOT_REACHED();
-}
+//   asm volatile("movl %0, %%esp; jmp intr_exit" : : "g"(&if_) : "memory");
+//   NOT_REACHED();
+// }
 
 /* Waits for thread with TID to die, if that thread was spawned
    in the same process and has not been waited on yet. Returns TID on
@@ -1191,19 +1191,19 @@ tid_t pthread_join(tid_t tid) {
   // }
   bool found = false;
   struct thread* t;
-  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-  //   struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
-  //   if (tid == curr_t->tid) {
-  //     found = true;
-  //     t = curr_t;
-  //     break;
-  //   }
-  // }
-  // if (!found) {
-  //   // return TID_ERROR;
-  //   // ??????
-  //   return 0;
-  // }
+  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+    struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
+    if (tid == curr_t->tid) {
+      found = true;
+      t = curr_t;
+      break;
+    }
+  }
+  if (!found) {
+    // return TID_ERROR;
+    // ??????
+    return 0;
+  }
 
   struct join_struct* join = NULL;
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
@@ -1241,6 +1241,8 @@ void pthread_exit(void) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
 
+  list_remove(&t->im_a_thread_elem);
+
   if (is_main_thread(t, p)) {
     pthread_exit_main();
     return;
@@ -1270,13 +1272,9 @@ void pthread_exit(void) {
   //   exit_helper(0);
   // } else {
   // struct list_elem *e;
-  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-
-  }
+  
   thread_exit();
-  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-
-  }
+  
   // }
   // free(t->user_stack_pointer);
 
@@ -1297,9 +1295,7 @@ void pthread_exit_main(void) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
   struct list_elem* e;
-  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-
-  }
+  
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
@@ -1310,8 +1306,6 @@ void pthread_exit_main(void) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     pthread_join(js->tid);
   }
-  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-
-  }
+  
   exit_helper(0);
 }

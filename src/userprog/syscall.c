@@ -301,6 +301,24 @@ WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
 }
 
 
+WO_DE_SEMA_t* get_wrapper_from_sema(sema_t* sema) {
+  if (sema == NULL)
+    return NULL;
+  WO_DE_SEMA_t* my_sema = NULL;
+  struct list_elem* e;
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+
+  for (e = list_begin(&p->user_sema_list); e != list_end(&p->user_sema_list); e = list_next(e)) {
+    WO_DE_SEMA_t* s = list_entry(e, struct WO_DE_SEMA, sema_elem);
+    if (s->user_sema == *sema) {
+      my_sema = s;
+      break;
+    }
+  }
+  return my_sema;
+}
+
 bool lock_acquire_sys(lock_t* lock) {
   WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
   enum intr_level old_level;
@@ -371,6 +389,49 @@ bool sema_init_sys(sema_t* sema, int val) {
   enum intr_level old_level;
   old_level = intr_disable();
   list_push_back(&p->user_sema_list, &my_sema->sema_elem);
+  intr_set_level(old_level);
+  return true;
+}
+
+
+bool sema_down_sys(sema_t* sema) {
+  // WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
+  // enum intr_level old_level;
+  // old_level = intr_disable();
+  // if(my_lock == NULL) {
+  //   intr_set_level(old_level);
+  //   return false;
+  // }
+  // if(lock_held_by_current_thread(&(my_lock->kernel_lock))) {
+  //   intr_set_level(old_level);
+  //   return false;
+  // }
+  // lock_acquire(&(my_lock->kernel_lock));
+  // intr_set_level(old_level);
+  // return true;
+
+  WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
+  enum intr_level old_level;
+  old_level = intr_disable();
+  if (my_sema == NULL) {
+    intr_set_level(old_level);
+    return false;
+  }
+  sema_down(&my_sema->kernel_sema);
+  intr_set_level(old_level);
+  return true;
+}
+
+
+bool sema_up_sys(sema_t* sema) {
+  WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
+  enum intr_level old_level;
+  old_level = intr_disable();
+  if (my_sema == NULL) {
+    intr_set_level(old_level);
+    return false;
+  }
+  sema_up(&my_sema->kernel_sema);
   intr_set_level(old_level);
   return true;
 }
@@ -456,10 +517,10 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = lock_release_sys(args[1]);
   } else if (args[0] == SYS_SEMA_INIT) {
     f->eax = sema_init_sys(args[1], args[2]);
-  // } else if (args[0] == SYS_SEMA_DOWN) {
-  //   f->eax = sema_down_sys(args[1]);
-  // } else if (args[0] == SYS_LOCK_INIT) {
-  //   f->eax = lock_init_sys(args[1]);
+  } else if (args[0] == SYS_SEMA_DOWN) {
+    f->eax = sema_down_sys(args[1]);
+  } else if (args[0] == SYS_SEMA_UP) {
+    f->eax = sema_up_sys(args[1]);
   } else if (args[0] == SYS_PT_CREATE) {
     f->eax = sys_pthread_create(args[1], args[2], args[3]);
   } else if (args[0] == SYS_PT_EXIT) {
