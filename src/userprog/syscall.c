@@ -274,7 +274,10 @@ bool lock_init_sys(lock_t* lock) {
   lock_release(&p->lock_counter_lock);
   mylock->user_lock = *lock;
   lock_init(&mylock->kernel_lock);
+  enum intr_level old_level;
+  old_level = intr_disable();
   list_push_back(&p->user_lock_list, &mylock->lock_elem);
+  intr_set_level(old_level);
   return true;
 }
 
@@ -331,6 +334,47 @@ bool lock_release_sys(lock_t* lock) {
   intr_set_level(old_level);
   return true;
 }
+
+
+bool sema_init_sys(sema_t* sema, int val) {
+
+  // if (lock == NULL) {
+  //   return false;
+  // }
+  // struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
+  // struct process* p = process_current();
+  // lock_acquire(&p->lock_counter_lock);
+  // *lock = p->lock_counter;
+  // p->lock_counter++;
+  // lock_release(&p->lock_counter_lock);
+  // mylock->user_lock = *lock;
+  // lock_init(&mylock->kernel_lock);
+  // list_push_back(&p->user_lock_list, &mylock->lock_elem);
+  // return true;
+
+
+  //input validation
+  if (sema == NULL || val < 0) //check valid sema pointer, valid value
+    return false;
+  struct WO_DE_SEMA* my_sema = malloc(sizeof(struct WO_DE_SEMA));
+  struct process* p = process_current();
+  lock_acquire(&p->sema_counter_lock);
+  // acquire sema_counter_lock
+  *sema = p->sema_counter;
+  p->sema_counter++;
+  lock_release(&p->sema_counter_lock);
+  // release sema_counter_lock
+  // WO_DE_SEMA_t* my_sema = malloc()
+  my_sema->value = val;
+  my_sema->user_sema = *sema;
+  sema_init(&my_sema->kernel_sema, val);
+  enum intr_level old_level;
+  old_level = intr_disable();
+  list_push_back(&p->user_sema_list, &my_sema->sema_elem);
+  intr_set_level(old_level);
+  return true;
+}
+
 // USER THREADS
 tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
   return pthread_execute_funsies(sfun, tfun, arg);
@@ -410,6 +454,12 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = lock_acquire_sys(args[1]);
   } else if (args[0] == SYS_LOCK_RELEASE) {
     f->eax = lock_release_sys(args[1]);
+  } else if (args[0] == SYS_SEMA_INIT) {
+    f->eax = sema_init_sys(args[1], args[2]);
+  // } else if (args[0] == SYS_SEMA_DOWN) {
+  //   f->eax = sema_down_sys(args[1]);
+  // } else if (args[0] == SYS_LOCK_INIT) {
+  //   f->eax = lock_init_sys(args[1]);
   } else if (args[0] == SYS_PT_CREATE) {
     f->eax = sys_pthread_create(args[1], args[2], args[3]);
   } else if (args[0] == SYS_PT_EXIT) {
