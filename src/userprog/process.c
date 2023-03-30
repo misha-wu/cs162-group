@@ -155,6 +155,8 @@ static void start_process(void* sp_arg) {
     lock_init(&new_pcb->lock_counter_lock);
     lock_init(&new_pcb->sema_counter_lock);
 
+    lock_init(&thread_current()->has_been_joined_lock); ////???? 
+    thread_current()->has_been_joined = false;
 
     struct join_struct* sema_and_thread = palloc_get_page(0);
 
@@ -914,6 +916,9 @@ static void start_pthread_funsies(void* exec_) {
   lock_release(&(sparg->pcb->threads_list_lock));
   // intr_set_level(old_level);
 
+  lock_init(&thread_current()->has_been_joined_lock);
+  thread_current()->has_been_joined = false;
+
   struct list_elem *e;
   for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
 
@@ -1203,13 +1208,21 @@ tid_t pthread_join(tid_t tid) {
     if (tid == curr_t->tid) {
       found = true;
       t = curr_t;
+
+      lock_acquire(&t->has_been_joined_lock);
+      if (t->has_been_joined) {
+        return TID_ERROR;
+      }
+      t->has_been_joined = true;
+      lock_release(&t->has_been_joined_lock);
+
       break;
     }
   }
   if (!found) {
-    // return TID_ERROR;
+    return TID_ERROR;
     // ?????? this seems quite sus TODO
-    return 0;
+    // return 0;
   }
 
   struct join_struct* join = NULL;
@@ -1220,15 +1233,15 @@ tid_t pthread_join(tid_t tid) {
     }
   }
 
-  lock_acquire(&p->join_list_lock);
-  if (join == NULL) {
-    // this probably should not happen???
-    printf("we have problems!!!");
-    lock_release(&p->join_list_lock);
-    return TID_ERROR;
-  }
-  list_remove(&join->elem);
-  lock_release(&p->join_list_lock);
+  // lock_acquire(&p->join_list_lock);
+  // if (join == NULL) {
+  //   // this probably should not happen???
+  //   printf("we have problems!!!");
+  //   lock_release(&p->join_list_lock);
+  //   return TID_ERROR;
+  // }
+  // list_remove(&join->elem);
+  // lock_release(&p->join_list_lock);
 
   // return 0;
   return tid; // check return LOL
@@ -1270,6 +1283,7 @@ void pthread_exit(void) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
       sema_up(&js->join_sema);
+      break;
     }
   }
   

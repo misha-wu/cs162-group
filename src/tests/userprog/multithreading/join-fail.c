@@ -56,9 +56,13 @@ void test_main(void) {
   // Initialize global sema
   sema_check_init(&thread_sema, 0);
 
+  tid_t ret_value = pthread_join(1234);
   // Try to join on a non-existent thread
-  if (pthread_join(1234))
-    fail("Joined on non-existent thread");
+  if (ret_value) {
+    fail("joined on blabhablah LOL woooh");
+  }
+  // if (pthread_join(1234))
+  //   fail("Joined on non-existent thread");
 
   // Spawn a thread that hangs
   tid_t child_tid = pthread_check_create(thread_function, &thread_sema);
