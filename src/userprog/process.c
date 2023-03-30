@@ -785,6 +785,8 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
 // bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; }
 bool setup_thread(void (**eip)(void), void** esp) {
 
+  enum intr_level old_level = intr_disable();
+
   uint8_t* vaddr = PHYS_BASE - PGSIZE;
   int num_stack_pages = 0;
   // TODO: check MAX_STACK_PAGES
@@ -795,7 +797,11 @@ bool setup_thread(void (**eip)(void), void** esp) {
     vaddr = (char *) vaddr - PGSIZE;
     num_stack_pages++;
   }
+
+  intr_set_level(old_level); // TODO lol do we need this
+
   if (vaddr <= 0 || num_stack_pages >= MAX_STACK_PAGES) {
+    
     return false;
   }
   *esp = (char *) vaddr + PGSIZE;
@@ -1198,11 +1204,10 @@ static void start_pthread_funsies(void* exec_) {
 tid_t pthread_join(tid_t tid) {
   struct process* p = thread_current()->pcb;
   struct list_elem* e;
-  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
 
-  // }
   bool found = false;
   struct thread* t;
+  
   for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
     struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
     if (tid == curr_t->tid) {
@@ -1211,14 +1216,15 @@ tid_t pthread_join(tid_t tid) {
 
       lock_acquire(&t->has_been_joined_lock);
       if (t->has_been_joined) {
+        lock_release(&t->has_been_joined_lock);
         return TID_ERROR;
       }
       t->has_been_joined = true;
       lock_release(&t->has_been_joined_lock);
-
       break;
     }
   }
+
   if (!found) {
     return TID_ERROR;
     // ?????? this seems quite sus TODO
