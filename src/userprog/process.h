@@ -49,6 +49,7 @@ struct process {
   struct lock lock_counter_lock; // lock lock_counter from being modified by multiple threads simulateanously
   struct lock sema_counter_lock; // lock sema_counter from being modified by multiple threads simulateanously
 
+  struct join_struct* sus_initial_join;
   // struct semaphore exec_sema; //to make sure there isn't a race condition when calling exec
 };
 
