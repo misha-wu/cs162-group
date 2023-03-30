@@ -1532,6 +1532,8 @@ static void start_process(void* sp_arg) {
   } else {
     sema_and_thread->tid = t->tid;
     sema_init(&(sema_and_thread->join_sema), 0);
+    sema_and_thread->has_been_joined = false;
+    lock_init(&sema_and_thread->has_been_joined_lock);
     // new_pcb->sus_initial_join = sema_and_thread;
 
     lock_acquire(&(new_pcb->join_list_lock));
@@ -2268,6 +2270,9 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   sema_and_thread->tid = tid;
   sema_init(&(sema_and_thread->join_sema), 0); // joining is allowed now?? not sure
 
+  sema_and_thread->has_been_joined = false;
+  lock_init(&sema_and_thread->has_been_joined_lock);
+
   lock_acquire(&(thread_current()->pcb->join_list_lock));
   // add the new join struct to our join struct list
   list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
@@ -2298,6 +2303,8 @@ static void start_pthread_funsies(void* exec_) {
   list_push_back(&(sparg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
   lock_release(&(sparg->pcb->threads_list_lock));
   // intr_set_level(old_level);
+
+  lock_init(&thread_current()->has_been_joined_lock);
 
   struct list_elem *e;
   for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
@@ -2578,45 +2585,63 @@ static void start_pthread_funsies(void* exec_) {
 tid_t pthread_join(tid_t tid) {
   struct process* p = thread_current()->pcb;
   struct list_elem* e;
-  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
 
+  // bool found = false;
+  // struct thread* t;
+  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
+  //   struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
+  //   if (tid == curr_t->tid) {
+  //     lock_acquire(&t->has_been_joined_lock);
+  //     if (t->has_been_joined) {
+  //       lock_release(&t->has_been_joined_lock);
+  //       return TID_ERROR;
+  //     }
+  //     t->has_been_joined = true;
+  //     lock_release(&t->has_been_joined_lock);
+  //     found = true;
+  //     t = curr_t;
+  //     break;
+  //   }
+    
   // }
-  bool found = false;
-  struct thread* t;
-  for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-    struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
-    if (tid == curr_t->tid) {
-      found = true;
-      t = curr_t;
-      break;
-    }
-  }
-  if (!found) {
-    // return TID_ERROR;
-    // ??????
-    return 0;
-  }
+  // if (!found) {
+  //   printf("not found\n");
+  //   // return TID_ERROR;
+  //   // ??????
+  //   return 0;
+  // }
+  // printf("you will be found (you have been found)\n");
 
   struct join_struct* join = NULL;
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
+    lock_acquire(&join->has_been_joined_lock);
     if (tid == join->tid) {
+      
+      if (join->has_been_joined) {
+        lock_release(&join->has_been_joined_lock);
+        return TID_ERROR;
+      }
+      join->has_been_joined = true;
+      lock_release(&join->has_been_joined_lock);
       sema_down(&(join->join_sema));
+    } else {
+      lock_release(&join->has_been_joined_lock);
     }
   }
 
-  lock_acquire(&p->join_list_lock);
-  if (join == NULL) {
-    // this probably should not happen???
-    printf("we have problems!!!");
-    lock_release(&p->join_list_lock);
-    return TID_ERROR;
-  }
-  list_remove(&join->elem);
-  lock_release(&p->join_list_lock);
+  // lock_acquire(&p->join_list_lock);
+  // if (join == NULL) {
+  //   // this probably should not happen???
+  //   printf("we have problems!!!");
+  //   lock_release(&p->join_list_lock);
+  //   return TID_ERROR;
+  // }
+  // list_remove(&join->elem);
+  // lock_release(&p->join_list_lock);
 
-  return 0;
-  // return tid; // check return LOL
+  // return 0;
+  return tid; // check return LOL
 }
 
 /* Free the current thread's resources. Most resources will
@@ -2686,6 +2711,7 @@ void pthread_exit(void) {
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
 void pthread_exit_main(void) {
+  printf("i am in pthread exit main\n");
   struct thread* t = thread_current();
   struct process* p = t->pcb;
   struct list_elem* e;
