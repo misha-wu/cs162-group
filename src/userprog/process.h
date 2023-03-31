@@ -51,6 +51,8 @@ struct process {
 
   struct join_struct* sus_initial_join;
   bool terminated;
+  int num_alive_threads;
+  struct lock threads_alive_lock;
   struct condition terminate_cond; //condition variable for process_exit
   struct lock terminate_lock; //paired lock for above
   // struct semaphore exec_sema; //to make sure there isn't a race condition when calling exec

@@ -1506,6 +1506,7 @@ static void start_process(void* sp_arg) {
     new_pcb->terminated = false;
     cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
     lock_init(&new_pcb->terminate_lock); //init paired lock for above
+    new_pcb->num_alive_threads = 1;
     
 
     lock_init(&new_pcb->lock_counter_lock);
@@ -1672,6 +1673,9 @@ void process_exit(void) {
   struct list_elem* e;
 
   //todo: current thread to wait for all other threads with CV
+  // lock_acquire(&cur->pcb->terminate_lock);
+  // while(cur->pcb->terminate_cond > 1)
+  
   
   // iterate through list of children and decrement ref_cnt/check if they can be freed
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
@@ -2283,7 +2287,7 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   // lock_release(&(thread_current()->pcb->join_list_lock));
 
   // PANIC("added to join struct with tid %d", tid);
-
+  thread_current()->pcb->num_alive_threads += 1;
   return tid;
 }
 
