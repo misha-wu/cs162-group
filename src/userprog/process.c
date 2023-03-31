@@ -2625,7 +2625,7 @@ tid_t pthread_join(tid_t tid) {
   //   return 0;
   // }
   // printf("you will be found (you have been found)\n");
-
+  bool found = false;
   struct join_struct* join = NULL;
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
@@ -2636,6 +2636,7 @@ tid_t pthread_join(tid_t tid) {
         lock_release(&join->has_been_joined_lock);
         return TID_ERROR;
       }
+      found = true;
       join->has_been_joined = true;
       lock_release(&join->has_been_joined_lock);
       // PANIC("before sema down");
@@ -2643,6 +2644,10 @@ tid_t pthread_join(tid_t tid) {
     } else {
       lock_release(&join->has_been_joined_lock);
     }
+  }
+
+  if (!found) {
+    return TID_ERROR;
   }
   
 
@@ -2736,7 +2741,7 @@ void pthread_exit(void) {
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
 void pthread_exit_main(void) {
-  printf("i am in pthread exit main\n");
+  // printf("i am in pthread exit main\n");
   struct thread* t = thread_current();
   struct process* p = t->pcb;
   struct list_elem* e;
@@ -2752,5 +2757,6 @@ void pthread_exit_main(void) {
     pthread_join(js->tid);
   }
   
-  exit_helper(0);
+  // exit_helper(0);
+  exit(0);
 }
