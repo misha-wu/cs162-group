@@ -1497,11 +1497,15 @@ static void start_process(void* sp_arg) {
     
     list_init(&(new_pcb->user_sema_list));
     list_init(&(new_pcb->user_lock_list));
-    new_pcb->terminated = false;
+    
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
 
     // lock_init(&new_pcb->threads_list_lock);
+
+    new_pcb->terminated = false;
+    cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
+    lock_init(&new_pcb->terminate_lock); //init paired lock for above
     
 
     lock_init(&new_pcb->lock_counter_lock);
@@ -1522,31 +1526,27 @@ static void start_process(void* sp_arg) {
   //   return TID_ERROR;
   // }
 
-  list_init(&(new_pcb->join_list));
-  lock_init(&new_pcb->join_list_lock);
+    list_init(&(new_pcb->join_list));
+    lock_init(&new_pcb->join_list_lock);
 
-  // struct join_struct* sema_and_thread = palloc_get_page(0);
-  struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
-  new_pcb->sus_initial_join = sema_and_thread;
+    // struct join_struct* sema_and_thread = palloc_get_page(0);
+    struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
+    new_pcb->sus_initial_join = sema_and_thread;
 
-  if (sema_and_thread == NULL) {
-    success = false;
-  } else {
-    sema_and_thread->tid = t->tid;
-    sema_init(&(sema_and_thread->join_sema), 0);
-    sema_and_thread->has_been_joined = false;
-    lock_init(&sema_and_thread->has_been_joined_lock);
-    // new_pcb->sus_initial_join = sema_and_thread;
-    sema_and_thread->real = true;
+    if (sema_and_thread == NULL) {
+      success = false;
+    } else {
+      sema_and_thread->tid = t->tid;
+      sema_init(&(sema_and_thread->join_sema), 0);
+      sema_and_thread->has_been_joined = false;
+      lock_init(&sema_and_thread->has_been_joined_lock);
+      // new_pcb->sus_initial_join = sema_and_thread;
+      sema_and_thread->real = true;
 
-    lock_acquire(&(new_pcb->join_list_lock));
-    list_push_back(&(new_pcb->join_list), &(sema_and_thread->elem));
-    lock_release(&(new_pcb->join_list_lock));
-  }
-
-  
-
-  
+      lock_acquire(&(new_pcb->join_list_lock));
+      list_push_back(&(new_pcb->join_list), &(sema_and_thread->elem));
+      lock_release(&(new_pcb->join_list_lock));
+    }
 
     // calloc remaining structs? or not
   }
@@ -1662,7 +1662,7 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
-  pcb->terminated = true;
+  cur->pcb->terminated = true;
   process_status_t* mine = cur->pcb->my_own;
 
   sema_up(&(mine->sema));
