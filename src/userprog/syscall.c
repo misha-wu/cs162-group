@@ -56,7 +56,11 @@ bool valid_address(void* address) {
 
 // exit syscall
 int exit(int status) {
-  printf("%s: exit(%d)\n", thread_current()->pcb->process_name, status);
+  // struct thread* t = thread_current();
+  // struct process* p = t->pcb;
+  // p->terminated = true;
+
+  printf("%s: exit(%d)\n", p->process_name, status);
   exit_helper(status);
   return status;
 }

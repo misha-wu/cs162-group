@@ -1497,6 +1497,7 @@ static void start_process(void* sp_arg) {
     
     list_init(&(new_pcb->user_sema_list));
     list_init(&(new_pcb->user_lock_list));
+    new_pcb->terminated = false;
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
 
@@ -1661,7 +1662,7 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
-
+  pcb->terminated = true;
   process_status_t* mine = cur->pcb->my_own;
 
   sema_up(&(mine->sema));
@@ -1669,6 +1670,8 @@ void process_exit(void) {
 
   struct process* p = cur->pcb;
   struct list_elem* e;
+
+  //todo: current thread to wait for all other threads with CV
   
   // iterate through list of children and decrement ref_cnt/check if they can be freed
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
@@ -2766,9 +2769,9 @@ void pthread_exit_main(void) {
   lock_acquire(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
-    printf("loop thru js, tid is %d\n", js->tid);
+    // printf("loop thru js, tid is %d\n", js->tid);
     if (js->tid == t->tid && js->real) {
-      printf("found my js");
+      // printf("found my js");
       sema_up(&js->join_sema);
       break;
     }

@@ -333,6 +333,14 @@ void intr_handler(struct intr_frame* frame) {
     yield_on_return = false;
   }
 
+//WODE_EDITS????
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+  if(p->terminated && is_trap_from_userspace(frame)) {
+    //should only
+    pthread_exit();
+  }
+
   /* Invoke the interrupt's handler. */
   handler = intr_handlers[frame->vec_no];
   if (handler != NULL)
