@@ -361,12 +361,13 @@ void intr_handler(struct intr_frame* frame) {
     in_external_intr = false;
     pic_end_of_interrupt(frame->vec_no);
 
-    // if(p->terminated && is_trap_from_userspace(frame)) {
-    //   //should only
-    //   //potential loc 2
-    //   // pass;
-    //   // thread_exit();
-    // }
+    // PANIC("am i terminated? t terminated %x", t->terminated);
+    if(t->terminated != 0 && *(t->terminated) && is_trap_from_userspace(frame)) {
+      //should only
+      //potential loc 2
+      // pass;
+      thread_exit();
+    }
     if (yield_on_return)
       thread_yield();
   }

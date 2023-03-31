@@ -1504,6 +1504,7 @@ static void start_process(void* sp_arg) {
     // lock_init(&new_pcb->threads_list_lock);
 
     new_pcb->terminated = false;
+    t->terminated = &new_pcb->terminated;
     cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
     lock_init(&new_pcb->terminate_lock); //init paired lock for above
     new_pcb->num_alive_threads = 1;
@@ -1663,7 +1664,14 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
-  cur->pcb->terminated = true;
+  (cur->pcb->terminated) = true;
+
+  lock_acquire(&cur->pcb->terminate_lock);
+  while (cur->pcb->num_alive_threads > 1) {
+    cond_wait(&cur->pcb->terminate_cond, &cur->pcb->terminate_lock);
+  }
+  lock_release(&cur->pcb->terminate_lock);
+
   process_status_t* mine = cur->pcb->my_own;
 
   sema_up(&(mine->sema));
@@ -2297,6 +2305,7 @@ static void start_pthread_funsies(void* exec_) {
   stub_fun sf = sparg->sf;
   pthread_fun tf = sparg->tf;
   thread_current()->pcb = sparg->pcb;
+  thread_current()->terminated = &(thread_current()->pcb->terminated);
 
   // lock_acquire(&(sparg->pcb->threads_list_lock));
   // enum intr_level old_level = intr_disable();
@@ -2669,6 +2678,16 @@ tid_t pthread_join(tid_t tid) {
   return tid; // check return LOL
 }
 
+void update_terminate_cond() {
+  struct process* p = thread_current()->pcb;
+  lock_acquire(&p->terminate_lock);
+  p->num_alive_threads--;
+  if (p->num_alive_threads == 1) {
+    cond_signal(&p->terminate_cond, &p->terminate_lock);
+  }
+  lock_release(&p->terminate_lock);
+}
+
 /* Free the current thread's resources. Most resources will
    be freed on thread_exit(), so all we have to do is deallocate the
    thread's userspace stack. Wake any waiters on this thread.
@@ -2725,6 +2744,7 @@ void pthread_exit(void) {
   //   exit_helper(0);
   // } else {
   // struct list_elem *e;
+  update_terminate_cond();
   
   thread_exit();
   
