@@ -9,6 +9,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "userprog/process.h"
 #ifdef USERPROG
 #include "userprog/gdt.h"
 #endif
