@@ -2628,29 +2628,30 @@ tid_t pthread_join(tid_t tid) {
   // printf("you will be found (you have been found)\n");
   bool found = false;
   struct join_struct* join = NULL;
-  lock_acquire(&p->join_list_lock);
+  // lock_acquire(&p->join_list_lock);
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
-    lock_acquire(&join->has_been_joined_lock);
+    // lock_acquire(&join->has_been_joined_lock);
     if (tid == join->tid) {
       
-      if (join->has_been_joined) {
-        lock_release(&join->has_been_joined_lock);
-        return TID_ERROR;
-      }
+      // if (join->has_been_joined) {
+      //   // lock_release(&p->join_list_lock);
+      //   lock_release(&join->has_been_joined_lock);
+      //   return TID_ERROR;
+      // }
       found = true;
-      join->has_been_joined = true;
-      lock_release(&join->has_been_joined_lock);
+      // join->has_been_joined = true;
+      // lock_release(&join->has_been_joined_lock);
       // PANIC("before sema down");
-      lock_release(&p->join_list_lock);
+      // lock_release(&p->join_list_lock);
       sema_down(&(join->join_sema));
-      lock_acquire(&p->join_list_lock);
+      // lock_acquire(&p->join_list_lock);
       break;
-    } else {
-      lock_release(&join->has_been_joined_lock);
+    // } else {
+    //   lock_release(&join->has_been_joined_lock);
     }
   }
-  lock_release(&p->join_list_lock);
+  // lock_release(&p->join_list_lock);
 
   if (!found) {
     return TID_ERROR;
@@ -2758,12 +2759,14 @@ void pthread_exit_main(void) {
   struct process* p = t->pcb;
   struct list_elem* e;
   
+  lock_acquire(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
       sema_up(&js->join_sema);
     }
   }
+  lock_release(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     pthread_join(js->tid);
