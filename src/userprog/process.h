@@ -49,6 +49,7 @@ struct process {
   struct lock lock_counter_lock; // lock lock_counter from being modified by multiple threads simulateanously
   struct lock sema_counter_lock; // lock sema_counter from being modified by multiple threads simulateanously
 
+  struct join_struct* sus_initial_join;
   // struct semaphore exec_sema; //to make sure there isn't a race condition when calling exec
 };
 
@@ -57,6 +58,8 @@ struct join_struct {
   struct semaphore join_sema; // semaphore that corresponds to that thread
   tid_t tid; // tid of the thread
   struct list_elem elem; // to put the joined_struct inside the join_sema_list in the struct process
+  bool has_been_joined;
+  struct lock has_been_joined_lock;
 };
 
 /* Struct to pass in as an argument to start_pthread, */
