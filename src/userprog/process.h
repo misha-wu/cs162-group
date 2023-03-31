@@ -60,6 +60,7 @@ struct join_struct {
   struct list_elem elem; // to put the joined_struct inside the join_sema_list in the struct process
   bool has_been_joined;
   struct lock has_been_joined_lock;
+  bool real;
 };
 
 /* Struct to pass in as an argument to start_pthread, */
