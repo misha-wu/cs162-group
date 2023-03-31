@@ -446,10 +446,6 @@ void sys_pthread_exit(void) {
 }
 
 tid_t sys_pthread_join(tid_t tid) {
-
-  // tid_t temp = pthread_join(tid);
-  // return temp;
-
   return pthread_join(tid);
 }
 
