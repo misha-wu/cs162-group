@@ -2608,34 +2608,14 @@ static void start_pthread_funsies(void* exec_) {
    now, it does nothing. */
 // tid_t pthread_join(tid_t tid UNUSED) { return -1; }
 tid_t pthread_join(tid_t tid) {
-  struct process* p = thread_current()->pcb;
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+  if(tid == t->tid) {
+    //this is a self joiner
+    // like game of thrones
+    return TID_ERROR;
+  }
   struct list_elem* e;
-
-  // bool found = false;
-  // struct thread* t;
-  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-  //   struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
-  //   if (tid == curr_t->tid) {
-  //     lock_acquire(&t->has_been_joined_lock);
-  //     if (t->has_been_joined) {
-  //       lock_release(&t->has_been_joined_lock);
-  //       return TID_ERROR;
-  //     }
-  //     t->has_been_joined = true;
-  //     lock_release(&t->has_been_joined_lock);
-  //     found = true;
-  //     t = curr_t;
-  //     break;
-  //   }
-    
-  // }
-  // if (!found) {
-  //   printf("not found\n");
-  //   // return TID_ERROR;
-  //   // ??????
-  //   return 0;
-  // }
-  // printf("you will be found (you have been found)\n");
   bool found = false;
   struct join_struct* join = NULL;
   // lock_acquire(&p->join_list_lock);
