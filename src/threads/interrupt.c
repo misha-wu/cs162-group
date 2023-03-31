@@ -364,7 +364,8 @@ void intr_handler(struct intr_frame* frame) {
     if(p->terminated && is_trap_from_userspace(frame)) {
       //should only
       //potential loc 2
-      thread_exit();
+      // pass;
+      // thread_exit();
     }
     if (yield_on_return)
       thread_yield();
