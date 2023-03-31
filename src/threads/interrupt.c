@@ -9,6 +9,7 @@
 #include "threads/thread.h"
 #include "threads/vaddr.h"
 #include "devices/timer.h"
+#include "userprog/process.h"
 #ifdef USERPROG
 #include "userprog/gdt.h"
 #endif
@@ -333,6 +334,14 @@ void intr_handler(struct intr_frame* frame) {
     yield_on_return = false;
   }
 
+//WODE_EDITS????
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+  // if(p->terminated && is_trap_from_userspace(frame)) {
+  //   //should only
+  //   pthread_exit();
+  // }
+
   /* Invoke the interrupt's handler. */
   handler = intr_handlers[frame->vec_no];
   if (handler != NULL)
@@ -352,6 +361,12 @@ void intr_handler(struct intr_frame* frame) {
     in_external_intr = false;
     pic_end_of_interrupt(frame->vec_no);
 
+    // if(p->terminated && is_trap_from_userspace(frame)) {
+    //   //should only
+    //   //potential loc 2
+    //   // pass;
+    //   // thread_exit();
+    // }
     if (yield_on_return)
       thread_yield();
   }

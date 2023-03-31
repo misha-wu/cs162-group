@@ -1493,23 +1493,29 @@ static void start_process(void* sp_arg) {
 
     // USER THREADS initialization
 
-    list_init(&(new_pcb->threads_list));
+    // list_init(&(new_pcb->threads_list));
     
     list_init(&(new_pcb->user_sema_list));
     list_init(&(new_pcb->user_lock_list));
+    
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
 
-    lock_init(&new_pcb->threads_list_lock);
+    // lock_init(&new_pcb->threads_list_lock);
+
+    new_pcb->terminated = false;
+    cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
+    lock_init(&new_pcb->terminate_lock); //init paired lock for above
+    new_pcb->num_alive_threads = 1;
     
 
     lock_init(&new_pcb->lock_counter_lock);
     lock_init(&new_pcb->sema_counter_lock);
 
 
-    lock_acquire(&(new_pcb->threads_list_lock));
-    list_push_back(&(new_pcb->threads_list), &(t->im_a_thread_elem));
-    lock_release(&(new_pcb->threads_list_lock));
+    // lock_acquire(&(new_pcb->threads_list_lock));
+    // list_push_back(&(new_pcb->threads_list), &(t->im_a_thread_elem));
+    // lock_release(&(new_pcb->threads_list_lock));
     
 
   // struct join_struct* sema_and_thread = palloc_get_page(0);
@@ -1521,29 +1527,27 @@ static void start_process(void* sp_arg) {
   //   return TID_ERROR;
   // }
 
-  list_init(&(new_pcb->join_list));
-  lock_init(&new_pcb->join_list_lock);
+    list_init(&(new_pcb->join_list));
+    lock_init(&new_pcb->join_list_lock);
 
-  struct join_struct* sema_and_thread = palloc_get_page(0);
-  new_pcb->sus_initial_join = sema_and_thread;
+    // struct join_struct* sema_and_thread = palloc_get_page(0);
+    struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
+    new_pcb->sus_initial_join = sema_and_thread;
 
-  if (sema_and_thread == NULL) {
-    success = false;
-  } else {
-    sema_and_thread->tid = t->tid;
-    sema_init(&(sema_and_thread->join_sema), 0);
-    sema_and_thread->has_been_joined = false;
-    lock_init(&sema_and_thread->has_been_joined_lock);
-    // new_pcb->sus_initial_join = sema_and_thread;
+    if (sema_and_thread == NULL) {
+      success = false;
+    } else {
+      sema_and_thread->tid = t->tid;
+      sema_init(&(sema_and_thread->join_sema), 0);
+      sema_and_thread->has_been_joined = false;
+      lock_init(&sema_and_thread->has_been_joined_lock);
+      // new_pcb->sus_initial_join = sema_and_thread;
+      sema_and_thread->real = true;
 
-    lock_acquire(&(new_pcb->join_list_lock));
-    list_push_back(&(new_pcb->join_list), &(sema_and_thread->elem));
-    lock_release(&(new_pcb->join_list_lock));
-  }
-
-  
-
-  
+      lock_acquire(&(new_pcb->join_list_lock));
+      list_push_back(&(new_pcb->join_list), &(sema_and_thread->elem));
+      lock_release(&(new_pcb->join_list_lock));
+    }
 
     // calloc remaining structs? or not
   }
@@ -1659,7 +1663,7 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
-
+  cur->pcb->terminated = true;
   process_status_t* mine = cur->pcb->my_own;
 
   sema_up(&(mine->sema));
@@ -1667,6 +1671,11 @@ void process_exit(void) {
 
   struct process* p = cur->pcb;
   struct list_elem* e;
+
+  //todo: current thread to wait for all other threads with CV
+  // lock_acquire(&cur->pcb->terminate_lock);
+  // while(cur->pcb->terminate_cond > 1)
+  
   
   // iterate through list of children and decrement ref_cnt/check if they can be freed
   for (e = list_begin(&p->children); e != list_end(&p->children);) {
@@ -1680,10 +1689,9 @@ void process_exit(void) {
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list);) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     struct list_elem* next = list_next(e);
-    // if (js == p->sus_initial_join) {
-
-    // }
-    palloc_free_page(js);
+    // palloc_free_page(js);
+    list_remove(&js->elem);
+    free(js);
     e = next;
   }
   // palloc_free_page(p->sus_initial_join);
@@ -2250,8 +2258,9 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(thread_current()->name, PRI_DEFAULT, start_pthread_funsies, sparg);
   sema_down(&(sparg->sema));
+  palloc_free_page(sparg);
   if (tid == TID_ERROR) {
-    palloc_free_page(sparg);
+    
     return TID_ERROR;
     // palloc_free_page(fn_copy);
     // palloc_free_page(child_status);
@@ -2278,7 +2287,7 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   // lock_release(&(thread_current()->pcb->join_list_lock));
 
   // PANIC("added to join struct with tid %d", tid);
-
+  thread_current()->pcb->num_alive_threads += 1;
   return tid;
 }
 
@@ -2289,11 +2298,11 @@ static void start_pthread_funsies(void* exec_) {
   pthread_fun tf = sparg->tf;
   thread_current()->pcb = sparg->pcb;
 
-  lock_acquire(&(sparg->pcb->threads_list_lock));
+  // lock_acquire(&(sparg->pcb->threads_list_lock));
   // enum intr_level old_level = intr_disable();
   
-  list_push_back(&(sparg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
-  lock_release(&(sparg->pcb->threads_list_lock));
+  // list_push_back(&(sparg->pcb->threads_list), &(thread_current()->im_a_thread_elem));
+  // lock_release(&(sparg->pcb->threads_list_lock));
   // intr_set_level(old_level);
 
   lock_init(&thread_current()->has_been_joined_lock);
@@ -2303,7 +2312,8 @@ static void start_pthread_funsies(void* exec_) {
 
   // }
 
-  struct join_struct* sema_and_thread = palloc_get_page(0);
+  // struct join_struct* sema_and_thread = palloc_get_page(0);
+  struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
 
   if (sema_and_thread == NULL) {
     // TODO CHECK MULTIOOM T^TTT
@@ -2317,6 +2327,7 @@ static void start_pthread_funsies(void* exec_) {
 
   sema_and_thread->has_been_joined = false;
   lock_init(&sema_and_thread->has_been_joined_lock);
+  sema_and_thread->real = true;
 
   lock_acquire(&(thread_current()->pcb->join_list_lock));
   // add the new join struct to our join struct list
@@ -2627,28 +2638,41 @@ tid_t pthread_join(tid_t tid) {
   // printf("you will be found (you have been found)\n");
   bool found = false;
   struct join_struct* join = NULL;
+  // lock_acquire(&p->join_list_lock);
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
-    lock_acquire(&join->has_been_joined_lock);
+    // lock_acquire(&join->has_been_joined_lock);
     if (tid == join->tid) {
       
-      if (join->has_been_joined) {
-        lock_release(&join->has_been_joined_lock);
-        return TID_ERROR;
-      }
+      // if (join->has_been_joined) {
+      //   // lock_release(&p->join_list_lock);
+      //   lock_release(&join->has_been_joined_lock);
+      //   return TID_ERROR;
+      // }
       found = true;
-      join->has_been_joined = true;
-      lock_release(&join->has_been_joined_lock);
+      // join->has_been_joined = true;
+      // lock_release(&join->has_been_joined_lock);
       // PANIC("before sema down");
+      // lock_release(&p->join_list_lock);
       sema_down(&(join->join_sema));
-    } else {
-      lock_release(&join->has_been_joined_lock);
+      // lock_acquire(&p->join_list_lock);
+      break;
+    // } else {
+    //   lock_release(&join->has_been_joined_lock);
     }
   }
+  // lock_release(&p->join_list_lock);
 
   if (!found) {
     return TID_ERROR;
   }
+
+  lock_acquire(&p->join_list_lock);
+  list_remove(&join->elem);
+  // barrier();
+  // WODETODO TODO: not freeing is very very sus
+  // free(join);
+  lock_release(&p->join_list_lock);
   
 
   // lock_acquire(&p->join_list_lock);
@@ -2680,9 +2704,9 @@ void pthread_exit(void) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
 
-  lock_acquire(&(p->threads_list_lock));
-  list_remove(&t->im_a_thread_elem);
-  lock_release(&(p->threads_list_lock));
+  // lock_acquire(&(p->threads_list_lock));
+  // list_remove(&t->im_a_thread_elem);
+  // lock_release(&(p->threads_list_lock));
   
   if (is_main_thread(t, p)) {
     pthread_exit_main();
@@ -2698,8 +2722,7 @@ void pthread_exit(void) {
   struct list_elem* e;
 
   int num_iters = 0;
-  lock_acquire(&(thread_current()->pcb->join_list_lock));
-  
+  lock_acquire(&(thread_current()->pcb->join_list_lock));  
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
@@ -2746,15 +2769,21 @@ void pthread_exit_main(void) {
   struct process* p = t->pcb;
   struct list_elem* e;
   
+  lock_acquire(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
-    if (js->tid == t->tid) {
+    // printf("loop thru js, tid is %d\n", js->tid);
+    if (js->tid == t->tid && js->real) {
+      // printf("found my js");
       sema_up(&js->join_sema);
+      break;
     }
   }
+  lock_release(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
-    pthread_join(js->tid);
+    if (js->real == 1)
+      pthread_join(js->tid);
   }
   
   // exit_helper(0);
