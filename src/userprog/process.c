@@ -2258,35 +2258,27 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
     // palloc_free_page(arg);
   }
 
-  // struct join_struct* sema_and_thread = calloc(1, sizeof(struct join_struct));
-  struct join_struct* sema_and_thread = palloc_get_page(0);
+  // struct join_struct* sema_and_thread = palloc_get_page(0);
 
-  if (sema_and_thread == NULL) {
-    palloc_free_page(sparg);
-    // return -1;
-    return TID_ERROR;
-  }
-
-  sema_and_thread->tid = tid;
-  sema_init(&(sema_and_thread->join_sema), 0); // joining is allowed now?? not sure
-
-  sema_and_thread->has_been_joined = false;
-  lock_init(&sema_and_thread->has_been_joined_lock);
-
-  lock_acquire(&(thread_current()->pcb->join_list_lock));
-  // add the new join struct to our join struct list
-  list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
-  lock_release(&(thread_current()->pcb->join_list_lock));
-
-  // if (tid == TID_ERROR || !child_status->load_success) {
-  //   return -1; 
+  // if (sema_and_thread == NULL) {
+  //   palloc_free_page(sparg);
+  //   // return -1;
+  //   return TID_ERROR;
   // }
-  // child_status->pid = tid;
 
-  // struct thread* cur = thread_current();
-  // struct process* p = cur->pcb;
-  // // add child's process_status to our list of children
-  // list_push_back(&(p->children), &child_status->elem);
+  // sema_and_thread->tid = tid;
+  // sema_init(&(sema_and_thread->join_sema), 0); // joining is allowed now?? not sure
+
+  // sema_and_thread->has_been_joined = false;
+  // lock_init(&sema_and_thread->has_been_joined_lock);
+
+  // lock_acquire(&(thread_current()->pcb->join_list_lock));
+  // // add the new join struct to our join struct list
+  // list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
+  // lock_release(&(thread_current()->pcb->join_list_lock));
+
+  // PANIC("added to join struct with tid %d", tid);
+
   return tid;
 }
 
@@ -2306,10 +2298,32 @@ static void start_pthread_funsies(void* exec_) {
 
   lock_init(&thread_current()->has_been_joined_lock);
 
-  struct list_elem *e;
-  for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
+  // struct list_elem *e;
+  // for (e = list_begin(&(sparg->pcb->threads_list)); e != list_end(&(sparg->pcb->threads_list)); e = list_next(e)) {
 
+  // }
+
+  struct join_struct* sema_and_thread = palloc_get_page(0);
+
+  if (sema_and_thread == NULL) {
+    // TODO CHECK MULTIOOM T^TTT
+    // palloc_free_page(sparg);
+    // return -1;
+    return TID_ERROR;
   }
+
+  sema_and_thread->tid = thread_current()->tid;
+  sema_init(&(sema_and_thread->join_sema), 0); // joining is allowed now?? not sure
+
+  sema_and_thread->has_been_joined = false;
+  lock_init(&sema_and_thread->has_been_joined_lock);
+
+  lock_acquire(&(thread_current()->pcb->join_list_lock));
+  // add the new join struct to our join struct list
+  list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
+  lock_release(&(thread_current()->pcb->join_list_lock));
+
+  // PANIC("added to join struct with tid %d", thread_current()->tid);
 
   void* arg = sparg->arg;
 
@@ -2624,11 +2638,14 @@ tid_t pthread_join(tid_t tid) {
       }
       join->has_been_joined = true;
       lock_release(&join->has_been_joined_lock);
+      // PANIC("before sema down");
       sema_down(&(join->join_sema));
+      // PANIC("after sema");
     } else {
       lock_release(&join->has_been_joined_lock);
     }
   }
+  
 
   // lock_acquire(&p->join_list_lock);
   // if (join == NULL) {
@@ -2654,6 +2671,7 @@ tid_t pthread_join(tid_t tid) {
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
 void pthread_exit(void) {
+  
 
   struct thread* t = thread_current();
   struct process* p = t->pcb;
@@ -2675,13 +2693,21 @@ void pthread_exit(void) {
 
   struct list_elem* e;
 
-  // iterate through our list of children
+  int num_iters = 0;
+  lock_acquire(&(thread_current()->pcb->join_list_lock));
+  
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
+      // PANIC("before sema up");
       sema_up(&js->join_sema);
     }
+    // printf("sadgness");
+    // PANIC("after the for loop with js %d t %d", js->tid, t->tid);
+    num_iters++;
   }
+  lock_release(&(thread_current()->pcb->join_list_lock));
+  // PANIC("after the for loop with %d iters", num_iters);
   
   // if (is_main_thread(t, p)) {
   //   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
