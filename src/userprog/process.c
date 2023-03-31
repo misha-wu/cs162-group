@@ -2640,7 +2640,6 @@ tid_t pthread_join(tid_t tid) {
       lock_release(&join->has_been_joined_lock);
       // PANIC("before sema down");
       sema_down(&(join->join_sema));
-      // PANIC("after sema");
     } else {
       lock_release(&join->has_been_joined_lock);
     }
