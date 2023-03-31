@@ -37,8 +37,8 @@ struct process {
   
   // int num_pages_so_far; // keeps track of how many pages there have been so far created by user threads, initialize to 1 for the first user thread
   // struct lock num_pages_so_far_lock; // lock num_pages_so_far from being modified by multiple threads simulateanously
-  struct list threads_list; // a list of all the threads under this process
-  struct lock threads_list_lock;
+  // struct list threads_list; // a list of all the threads under this process
+  // struct lock threads_list_lock;
   struct list join_list;  // a list of join_struct
   struct lock join_list_lock;
 
@@ -49,6 +49,7 @@ struct process {
   struct lock lock_counter_lock; // lock lock_counter from being modified by multiple threads simulateanously
   struct lock sema_counter_lock; // lock sema_counter from being modified by multiple threads simulateanously
 
+  struct join_struct* sus_initial_join;
   // struct semaphore exec_sema; //to make sure there isn't a race condition when calling exec
 };
 
@@ -57,6 +58,8 @@ struct join_struct {
   struct semaphore join_sema; // semaphore that corresponds to that thread
   tid_t tid; // tid of the thread
   struct list_elem elem; // to put the joined_struct inside the join_sema_list in the struct process
+  bool has_been_joined;
+  struct lock has_been_joined_lock;
 };
 
 /* Struct to pass in as an argument to start_pthread, */
