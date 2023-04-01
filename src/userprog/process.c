@@ -399,6 +399,7 @@ void process_exit(void) {
 
   // close file descriptors
   for (int i = 0; i < 16200; i++) {
+  // for (int i = 0; i < 256; i++) {
     if (p->fd_table[i] != NULL) {
       close(i);
     }
