@@ -2630,24 +2630,25 @@ tid_t pthread_join(tid_t tid) {
   // lock_acquire(&p->join_list_lock);
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
-    // lock_acquire(&join->has_been_joined_lock);
+    lock_acquire(&join->has_been_joined_lock);
     if (tid == join->tid) {
       
-      // if (join->has_been_joined) {
-      //   // lock_release(&p->join_list_lock);
-      //   lock_release(&join->has_been_joined_lock);
-      //   return TID_ERROR;
-      // }
+      if (join->has_been_joined) {
+        // lock_release(&p->join_list_lock);
+        lock_release(&join->has_been_joined_lock);
+        return TID_ERROR;
+      }
       found = true;
-      // join->has_been_joined = true;
-      // lock_release(&join->has_been_joined_lock);
+      join->has_been_joined = true;
+      lock_release(&join->has_been_joined_lock);
       // PANIC("before sema down");
       // lock_release(&p->join_list_lock);
+      // printf("sema down on tid %d\n", join->tid);
       sema_down(&(join->join_sema));
       // lock_acquire(&p->join_list_lock);
       break;
-    // } else {
-    //   lock_release(&join->has_been_joined_lock);
+    } else {
+      lock_release(&join->has_been_joined_lock);
     }
   }
   // lock_release(&p->join_list_lock);
@@ -2775,7 +2776,7 @@ void pthread_exit_main(void) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     // printf("loop thru js, tid is %d\n", js->tid);
     if (js->tid == t->tid && js->real) {
-      // printf("found my js");
+      // printf("sema up on tid %d\n", js->tid);
       sema_up(&js->join_sema);
       break;
     }
@@ -2783,7 +2784,7 @@ void pthread_exit_main(void) {
   lock_release(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
-    if (js->real == 1)
+    if (!js->has_been_joined)
       pthread_join(js->tid);
   }
   

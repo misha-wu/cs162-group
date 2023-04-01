@@ -363,10 +363,11 @@ void intr_handler(struct intr_frame* frame) {
 
     // PANIC("am i terminated? t terminated %x", t->terminated);
     if(t->terminated != 0 && *(t->terminated) && is_trap_from_userspace(frame)) {
+      // PANIC("i actually am terminating yay");
       //should only
       //potential loc 2
       // pass;
-      thread_exit();
+      pthread_exit();
     }
     if (yield_on_return)
       thread_yield();
