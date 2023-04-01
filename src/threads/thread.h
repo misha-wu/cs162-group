@@ -113,7 +113,8 @@ struct thread {
   bool has_been_joined; // whether somebody has called join on this thread
   struct lock has_been_joined_lock; // to ensure that two threads can't simultaneously modify has_been_joined
   struct list_elem im_a_thread_elem; //list_elem item for process's thread list
-
+  bool* terminated;
+  
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };

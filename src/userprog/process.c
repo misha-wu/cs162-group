@@ -1504,6 +1504,7 @@ static void start_process(void* sp_arg) {
     // lock_init(&new_pcb->threads_list_lock);
 
     new_pcb->terminated = false;
+    t->terminated = &new_pcb->terminated;
     cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
     lock_init(&new_pcb->terminate_lock); //init paired lock for above
     new_pcb->num_alive_threads = 1;
@@ -1663,7 +1664,14 @@ void process_exit(void) {
     thread_exit();
     NOT_REACHED();
   }
-  cur->pcb->terminated = true;
+  (cur->pcb->terminated) = true;
+
+  lock_acquire(&cur->pcb->terminate_lock);
+  while (cur->pcb->num_alive_threads > 1) {
+    cond_wait(&cur->pcb->terminate_cond, &cur->pcb->terminate_lock);
+  }
+  lock_release(&cur->pcb->terminate_lock);
+
   process_status_t* mine = cur->pcb->my_own;
 
   sema_up(&(mine->sema));
@@ -2297,6 +2305,7 @@ static void start_pthread_funsies(void* exec_) {
   stub_fun sf = sparg->sf;
   pthread_fun tf = sparg->tf;
   thread_current()->pcb = sparg->pcb;
+  thread_current()->terminated = &(thread_current()->pcb->terminated);
 
   // lock_acquire(&(sparg->pcb->threads_list_lock));
   // enum intr_level old_level = intr_disable();
@@ -2608,34 +2617,14 @@ static void start_pthread_funsies(void* exec_) {
    now, it does nothing. */
 // tid_t pthread_join(tid_t tid UNUSED) { return -1; }
 tid_t pthread_join(tid_t tid) {
-  struct process* p = thread_current()->pcb;
+  struct thread* t = thread_current();
+  struct process* p = t->pcb;
+  if(tid == t->tid) {
+    //this is a self joiner
+    // like game of thrones
+    return TID_ERROR;
+  }
   struct list_elem* e;
-
-  // bool found = false;
-  // struct thread* t;
-  // for (e = list_begin(&(p->threads_list)); e != list_end(&(p->threads_list)); e = list_next(e)) {
-  //   struct thread* curr_t = list_entry(e, struct thread, im_a_thread_elem);
-  //   if (tid == curr_t->tid) {
-  //     lock_acquire(&t->has_been_joined_lock);
-  //     if (t->has_been_joined) {
-  //       lock_release(&t->has_been_joined_lock);
-  //       return TID_ERROR;
-  //     }
-  //     t->has_been_joined = true;
-  //     lock_release(&t->has_been_joined_lock);
-  //     found = true;
-  //     t = curr_t;
-  //     break;
-  //   }
-    
-  // }
-  // if (!found) {
-  //   printf("not found\n");
-  //   // return TID_ERROR;
-  //   // ??????
-  //   return 0;
-  // }
-  // printf("you will be found (you have been found)\n");
   bool found = false;
   struct join_struct* join = NULL;
   // lock_acquire(&p->join_list_lock);
@@ -2687,6 +2676,16 @@ tid_t pthread_join(tid_t tid) {
 
   // return 0;
   return tid; // check return LOL
+}
+
+void update_terminate_cond() {
+  struct process* p = thread_current()->pcb;
+  lock_acquire(&p->terminate_lock);
+  p->num_alive_threads--;
+  if (p->num_alive_threads == 1) {
+    cond_signal(&p->terminate_cond, &p->terminate_lock);
+  }
+  lock_release(&p->terminate_lock);
 }
 
 /* Free the current thread's resources. Most resources will
@@ -2744,6 +2743,7 @@ void pthread_exit(void) {
   //   exit_helper(0);
   // } else {
   // struct list_elem *e;
+  update_terminate_cond();
   
   thread_exit();
   
