@@ -2295,7 +2295,6 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   // lock_release(&(thread_current()->pcb->join_list_lock));
 
   // PANIC("added to join struct with tid %d", tid);
-  thread_current()->pcb->num_alive_threads += 1;
   return tid;
 }
 
@@ -2342,6 +2341,10 @@ static void start_pthread_funsies(void* exec_) {
   // add the new join struct to our join struct list
   list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
   lock_release(&(thread_current()->pcb->join_list_lock));
+
+  lock_acquire(&thread_current()->pcb->terminate_lock);
+  thread_current()->pcb->num_alive_threads++;
+  lock_release(&thread_current()->pcb->terminate_lock);
 
   // PANIC("added to join struct with tid %d", thread_current()->tid);
 
@@ -2645,6 +2648,7 @@ tid_t pthread_join(tid_t tid) {
       // lock_release(&p->join_list_lock);
       // printf("sema down on tid %d\n", join->tid);
       sema_down(&(join->join_sema));
+      // PANIC("after sema down in join, joined on tid %d", join->tid);
       // lock_acquire(&p->join_list_lock);
       break;
     } else {
@@ -2681,12 +2685,19 @@ tid_t pthread_join(tid_t tid) {
 
 void update_terminate_cond() {
   struct process* p = thread_current()->pcb;
+  // PANIC("in update terminate cond");
   lock_acquire(&p->terminate_lock);
   p->num_alive_threads--;
   if (p->num_alive_threads == 1) {
     cond_signal(&p->terminate_cond, &p->terminate_lock);
   }
   lock_release(&p->terminate_lock);
+}
+
+void pthread_exit_wrapper() {
+  if (thread_current()->pcb->terminated) {
+    pthread_exit();
+  }
 }
 
 /* Free the current thread's resources. Most resources will
@@ -2707,6 +2718,7 @@ void pthread_exit(void) {
   // lock_acquire(&(p->threads_list_lock));
   // list_remove(&t->im_a_thread_elem);
   // lock_release(&(p->threads_list_lock));
+  update_terminate_cond();
   
   if (is_main_thread(t, p)) {
     pthread_exit_main();
@@ -2745,7 +2757,7 @@ void pthread_exit(void) {
   //   exit_helper(0);
   // } else {
   // struct list_elem *e;
-  update_terminate_cond();
+  
   
   thread_exit();
   

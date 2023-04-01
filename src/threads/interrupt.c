@@ -362,12 +362,14 @@ void intr_handler(struct intr_frame* frame) {
     pic_end_of_interrupt(frame->vec_no);
 
     // PANIC("am i terminated? t terminated %x", t->terminated);
-    if(t->terminated != 0 && *(t->terminated) && is_trap_from_userspace(frame)) {
+    // if(t->terminated != 0 && *(t->terminated) && is_trap_from_userspace(frame)) {
+    if(is_trap_from_userspace(frame)) {
       // PANIC("i actually am terminating yay");
       //should only
       //potential loc 2
       // pass;
-      pthread_exit();
+      // pthread_exit();
+      pthread_exit_wrapper();
     }
     if (yield_on_return)
       thread_yield();
