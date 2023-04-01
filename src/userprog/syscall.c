@@ -453,6 +453,10 @@ tid_t sys_pthread_join(tid_t tid) {
   return pthread_join(tid);
 }
 
+tid_t get_tid_sys() {
+  return thread_current()->tid;
+}
+
 /*
 call helper, which does argument checking.
 */
@@ -531,5 +535,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     sys_pthread_exit();
   } else if (args[0] == SYS_PT_JOIN) {
     f->eax = sys_pthread_join(args[1]);
+  } else if (args[0] == SYS_GET_TID) {
+    f->eax = get_tid_sys(args[1]);
   }
 }
