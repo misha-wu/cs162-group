@@ -100,11 +100,20 @@ int open (char *name) {
     file_deny_write(file);
   }
   // add file to fd table and increment next available fd
-  int fd = p->fd_index;
-  p->fd_table[fd] = file;
-  p->fd_index++;
+  // find available fd
+  for (int i = 3; i < NUM_FILES; i++) {
+    if (p->fd_table[i] == NULL) {
+      p->fd_table[i] = file;
+      lock_release(&global_file_lock);
+      return i;
+    }
+  }
+  // int fd = p->fd_index;
+  // p->fd_table[fd] = file;
+  // p->fd_index++;
   lock_release(&global_file_lock);
-  return fd;
+  return -1;
+  // return fd;
 }
 
 // remove syscall

@@ -8,6 +8,7 @@
 // These defines will be used in Project 2: Multithreading
 #define MAX_STACK_PAGES (1 << 11)
 #define MAX_THREADS 127
+#define NUM_FILES 512
 
 
 /* PIDs and TIDs are the same type. PID should be
@@ -31,7 +32,7 @@ struct process {
   struct thread* main_thread;     /* Pointer to main thread */
   struct process_status* my_own;  /* Stores the current process's process_status */
   struct list children;           /* Pintos list of children's process_status */
-  struct file* fd_table[16200];     /* Array of file* storing mappings from file descriptors to files */
+  struct file* fd_table[NUM_FILES];     /* Array of file* storing mappings from file descriptors to files */
   int fd_index;                   /* The next available file descriptor */
 
   // USER THREADS
