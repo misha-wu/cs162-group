@@ -158,9 +158,12 @@ static void start_process(void* sp_arg) {
     // our first available file descriptor is 3 because 0, 1, and 2 are reserved for stdin, stdout, stderr
     new_pcb->fd_index = 3;
     // set mappings of 0, 1, and 2 to null because they don't correspond to acutal files
-    new_pcb->fd_table[0] = NULL;
-    new_pcb->fd_table[1] = NULL;
-    new_pcb->fd_table[2] = NULL;
+    // new_pcb->fd_table[0] = NULL;
+    // new_pcb->fd_table[1] = NULL;
+    // new_pcb->fd_table[2] = NULL;
+    for (int i = 0; i < NUM_FILES; i++) {
+      new_pcb->fd_table[i] = NULL;
+    }
 
     // USER THREADS initialization
 

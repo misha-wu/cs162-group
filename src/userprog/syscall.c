@@ -34,7 +34,8 @@ bool valid_fd(int fd) {
   if (fd == 0 || fd == 1 || fd == 2) {
     return true;
   }
-  if (fd >= p->fd_index || p->fd_table[fd] == NULL) {
+  // if (fd >= p->fd_index || p->fd_table[fd] == NULL) {
+  if (fd >= NUM_FILES || p->fd_table[fd] == NULL) {
     return false;
   }
   return true;
@@ -100,7 +101,12 @@ int open (char *name) {
     file_deny_write(file);
   }
   // add file to fd table and increment next available fd
-  // find available fd
+  // int fd = p->fd_index;
+  // p->fd_table[fd] = file;
+  // p->fd_index++;
+  // lock_release(&global_file_lock);
+  // return fd;
+
   for (int i = 3; i < NUM_FILES; i++) {
     if (p->fd_table[i] == NULL) {
       p->fd_table[i] = file;
@@ -108,12 +114,8 @@ int open (char *name) {
       return i;
     }
   }
-  // int fd = p->fd_index;
-  // p->fd_table[fd] = file;
-  // p->fd_index++;
   lock_release(&global_file_lock);
   return -1;
-  // return fd;
 }
 
 // remove syscall
