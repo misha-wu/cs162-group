@@ -315,35 +315,25 @@ WO_DE_SEMA_t* get_wrapper_from_sema(sema_t* sema) {
 
 bool lock_acquire_sys(lock_t* lock) {
   WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
-  enum intr_level old_level;
-  old_level = intr_disable();
   if(my_lock == NULL) {
-    intr_set_level(old_level);
     return false;
   }
   if(lock_held_by_current_thread(&(my_lock->kernel_lock))) {
-    intr_set_level(old_level);
     return false;
   }
   lock_acquire(&(my_lock->kernel_lock));
-  intr_set_level(old_level);
   return true;
 }
 
 bool lock_release_sys(lock_t* lock) {
   WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
-  enum intr_level old_level;
-  old_level = intr_disable();
   if(my_lock == NULL) {
-    intr_set_level(old_level);
     return false;
   }
   if(!lock_held_by_current_thread(&(my_lock->kernel_lock))) {
-    intr_set_level(old_level);
     return false;
   }
   lock_release(&(my_lock->kernel_lock));
-  intr_set_level(old_level);
   return true;
 }
 
@@ -373,28 +363,20 @@ bool sema_init_sys(sema_t* sema, int val) {
 
 bool sema_down_sys(sema_t* sema) {
   WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
-  enum intr_level old_level;
-  old_level = intr_disable();
   if (my_sema == NULL) {
-    intr_set_level(old_level);
     return false;
   }
   sema_down(&my_sema->kernel_sema);
-  intr_set_level(old_level);
   return true;
 }
 
 
 bool sema_up_sys(sema_t* sema) {
   WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
-  enum intr_level old_level;
-  old_level = intr_disable();
   if (my_sema == NULL) {
-    intr_set_level(old_level);
     return false;
   }
   sema_up(&my_sema->kernel_sema);
-  intr_set_level(old_level);
   return true;
 }
 
