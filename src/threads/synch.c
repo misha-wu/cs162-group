@@ -101,7 +101,6 @@ void sema_up(struct semaphore* sema) {
 
   ASSERT(sema != NULL);
 
-  // kinda sus idk what number
   int max_prio = -1;
   struct thread *max_prio_thread = NULL;
 

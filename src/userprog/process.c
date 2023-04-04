@@ -147,7 +147,6 @@ static void start_process(void* sp_arg) {
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
     new_pcb->terminated = false;
-    // t->terminated = &new_pcb->terminated;
     cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
     lock_init(&new_pcb->terminate_lock); //init paired lock for above
     new_pcb->num_alive_threads = 1;

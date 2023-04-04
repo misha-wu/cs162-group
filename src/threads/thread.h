@@ -99,17 +99,17 @@ struct thread {
 #endif
 
   // ALARM CLOCK
-  int64_t ticks_sleep_for; // how many ticks we need to sleep for
-  int64_t ticks_started_sleeping; // at what tick the thread was called timer_sleep on
-  struct list_elem sleep_elem; // for sleeping threads
+  int64_t ticks_sleep_for;            // how many ticks we need to sleep for
+  int64_t ticks_started_sleeping;     // at what tick the thread was called timer_sleep on
+  struct list_elem sleep_elem;        // to add thread to our sleeping_threads list
   
   // PRIORITY SCHEDULING
-  int base_priority; // priority of thread before priority donation
-  struct list locks_held; //a list of the locks the thread currently holds
-  struct lock* waiting_on; //lock we are waiting on
+  int base_priority;                  // priority of thread before any priority donations
+  struct list locks_held;             // a list of the locks the thread currently holds
+  struct lock* waiting_on;            // lock this thread is waiting on
 
   // USER THREADS
-  uint8_t* user_stack_pointer; // keeps track of the mapping between the user thread and kernel thread
+  uint8_t* user_stack_pointer;        // stack pointer of the user thread corresponding to this kernel thread
   
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
