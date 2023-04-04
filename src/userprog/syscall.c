@@ -268,10 +268,9 @@ bool lock_init_sys(lock_t* lock) {
   lock_release(&p->lock_counter_lock);
   mylock->user_lock = *lock;
   lock_init(&mylock->kernel_lock);
-  enum intr_level old_level;
-  old_level = intr_disable();
+  lock_acquire(&p->user_lock_mutex);
   list_push_back(&p->user_lock_list, &mylock->lock_elem);
-  intr_set_level(old_level);
+  lock_release(&p->user_lock_mutex);
   return true;
 }
 
@@ -353,10 +352,9 @@ bool sema_init_sys(sema_t* sema, int val) {
   my_sema->value = val;
   my_sema->user_sema = *sema;
   sema_init(&my_sema->kernel_sema, val);
-  enum intr_level old_level;
-  old_level = intr_disable();
+  lock_acquire(&p->user_sema_mutex);
   list_push_back(&p->user_sema_list, &my_sema->sema_elem);
-  intr_set_level(old_level);
+  lock_release(&p->user_sema_mutex);
   return true;
 }
 

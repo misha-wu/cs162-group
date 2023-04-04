@@ -41,6 +41,8 @@ struct process {
 
   struct list user_lock_list;     // list of WO_DE_LOCK_t*, our user lock structs
   struct list user_sema_list;     // list of WO_DE_SEMA_t*, our user sema structs
+  struct lock user_lock_mutex;    // lock user_lock_list from being modified by multiple threads simulateanously
+  struct lock user_sema_mutex;    // lock user_sema_list from being modified by multiple threads simulateanously
   int lock_counter;               // keeps track of how many locks have been created so far, init to 0
   int sema_counter;               // keeps track of how many semas have been created so far, init to 0
   struct lock lock_counter_lock;  // lock lock_counter from being modified by multiple threads simulateanously

@@ -143,6 +143,8 @@ static void start_process(void* sp_arg) {
     
     list_init(&(new_pcb->user_sema_list));
     list_init(&(new_pcb->user_lock_list));
+    lock_init(&new_pcb->user_lock_mutex);
+    lock_init(&new_pcb->user_sema_mutex);
     
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
@@ -919,7 +921,6 @@ static void start_pthread_funsies(void* exec_) {
 
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. */
-// tid_t pthread_join(tid_t tid UNUSED) { return -1; }
 tid_t pthread_join(tid_t tid) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
@@ -1008,7 +1009,6 @@ void pthread_exit(void) {
 
   struct list_elem* e;
 
-  int num_iters = 0;
   lock_acquire(&(thread_current()->pcb->join_list_lock));  
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
@@ -1016,7 +1016,6 @@ void pthread_exit(void) {
       sema_up(&js->join_sema);
       break;
     }
-    num_iters++;
   }
   lock_release(&(thread_current()->pcb->join_list_lock));
   
