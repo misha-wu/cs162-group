@@ -34,7 +34,6 @@ bool valid_fd(int fd) {
   if (fd == 0 || fd == 1 || fd == 2) {
     return true;
   }
-  // if (fd >= p->fd_index || p->fd_table[fd] == NULL) {
   if (fd >= NUM_FILES || p->fd_table[fd] == NULL) {
     return false;
   }
@@ -59,7 +58,6 @@ bool valid_address(void* address) {
 int exit(int status) {
   struct thread* t = thread_current();
   struct process* p = t->pcb;
-  // p->terminated = true;
 
   printf("%s: exit(%d)\n", p->process_name, status);
   exit_helper(status);
@@ -258,26 +256,7 @@ double compute_e (int n) {
   return sys_sum_to_e(n);
 }
 
-// typedef char lock_t;
-// typedef char sema_t;
-
-// bool lock_init_sys(lock_t* lock) {
-//   if (lock == NULL) {
-    
-//   }
-//   struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
-//   struct process* p = process_current();
-//   lock_acquire(&p->lock_counter_lock);
-//   *lock = p->lock_counter;
-//   p->lock_counter++;
-//   lock_release(&p->lock_counter_lock);
-//   mylock->user_lock = *lock;
-//   lock_init(&mylock->kernel_lock);
-//   list_push_back(&p->user_lock_list, &mylock->lock_elem);
-// }
-
 bool lock_init_sys(lock_t* lock) {
-  // if (*lock == NULL) {
   if (lock == NULL) {
     return false;
   }
@@ -297,7 +276,7 @@ bool lock_init_sys(lock_t* lock) {
 }
 
 WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
-  if (lock == NULL) { // ??? dereference
+  if (lock == NULL) {
     return NULL;
   }
   WO_DE_LOCK_t* my_lock = NULL;
@@ -370,22 +349,6 @@ bool lock_release_sys(lock_t* lock) {
 
 
 bool sema_init_sys(sema_t* sema, int val) {
-
-  // if (lock == NULL) {
-  //   return false;
-  // }
-  // struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
-  // struct process* p = process_current();
-  // lock_acquire(&p->lock_counter_lock);
-  // *lock = p->lock_counter;
-  // p->lock_counter++;
-  // lock_release(&p->lock_counter_lock);
-  // mylock->user_lock = *lock;
-  // lock_init(&mylock->kernel_lock);
-  // list_push_back(&p->user_lock_list, &mylock->lock_elem);
-  // return true;
-
-
   //input validation
   if (sema == NULL || val < 0) //check valid sema pointer, valid value
     return false;
@@ -397,7 +360,6 @@ bool sema_init_sys(sema_t* sema, int val) {
   p->sema_counter++;
   lock_release(&p->sema_counter_lock);
   // release sema_counter_lock
-  // WO_DE_SEMA_t* my_sema = malloc()
   my_sema->value = val;
   my_sema->user_sema = *sema;
   sema_init(&my_sema->kernel_sema, val);
@@ -410,21 +372,6 @@ bool sema_init_sys(sema_t* sema, int val) {
 
 
 bool sema_down_sys(sema_t* sema) {
-  // WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
-  // enum intr_level old_level;
-  // old_level = intr_disable();
-  // if(my_lock == NULL) {
-  //   intr_set_level(old_level);
-  //   return false;
-  // }
-  // if(lock_held_by_current_thread(&(my_lock->kernel_lock))) {
-  //   intr_set_level(old_level);
-  //   return false;
-  // }
-  // lock_acquire(&(my_lock->kernel_lock));
-  // intr_set_level(old_level);
-  // return true;
-
   WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
   enum intr_level old_level;
   old_level = intr_disable();

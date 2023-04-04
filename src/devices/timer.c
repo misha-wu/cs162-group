@@ -24,7 +24,6 @@ static int64_t ticks;
    Initialized by timer_calibrate(). */
 static unsigned loops_per_tick;
 
-//WODEVARIABLE
 struct list sleeping_threads;
 
 static intr_handler_func timer_interrupt;
@@ -94,19 +93,13 @@ bool sleep_compare(const struct list_elem* a, const struct list_elem* b, void* a
 /* Sleeps for approximately TICKS timer ticks.  Interrupts must
    be turned on. */
 void timer_sleep(int64_t ticks) {
-  // int64_t start = timer_ticks();
-
-  // ASSERT(intr_get_level() == INTR_ON);
-  // while (timer_elapsed(start) < ticks)
-  //   thread_yield();
-
   //disable interrupts
   enum intr_level old_level = intr_disable();
   struct thread* t = thread_current();
 
   t->ticks_sleep_for = ticks;
   t->ticks_started_sleeping = timer_ticks();
-  list_insert_ordered(&sleeping_threads, &(t->sleep_elem), *sleep_compare, NULL); //write helper?
+  list_insert_ordered(&sleeping_threads, &(t->sleep_elem), *sleep_compare, NULL);
   thread_block();
   intr_set_level(old_level);
   //reenable
@@ -169,7 +162,6 @@ static void timer_interrupt(struct intr_frame* args UNUSED) {
       int new_prio = t->priority;
       list_remove(e);
       e = next_e;
-      //a little sussy O.O
       if(new_prio > prio) {
         //we want to yield on return
         yield = true;

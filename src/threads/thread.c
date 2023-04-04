@@ -116,7 +116,6 @@ void thread_init(void) {
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
 
-  // WOMENDECODE
   initial_thread->priority = PRI_DEFAULT;
 }
 
@@ -255,9 +254,7 @@ static void thread_enqueue(struct thread* t) {
   ASSERT(intr_get_level() == INTR_OFF);
   ASSERT(is_thread(t));
 
-  if (active_sched_policy == SCHED_FIFO)
-    list_push_back(&fifo_ready_list, &t->elem);
-  else if (active_sched_policy == SCHED_PRIO)
+  if (active_sched_policy == SCHED_FIFO || active_sched_policy == SCHED_PRIO)
     list_push_back(&fifo_ready_list, &t->elem);
   else
     PANIC("Unimplemented scheduling policy value: %d", active_sched_policy);
@@ -355,29 +352,13 @@ void set_donated_priority(struct thread* donee, int new_priority) {
 
   if(new_priority > donee->priority) {
     donee->priority=new_priority;
-  
-  // donee->base_priority=new_priority;
-    while(donee && donee->waiting_on) {
+      while(donee && donee->waiting_on) {
       if(new_priority > donee->priority) {
         donee->priority = new_priority;
       }
       donee = donee->waiting_on->holder;
     }
   }
-
-  // struct list_elem *e;
-  // for (e = list_begin (&donee->locks_held); e != list_end (&donee->locks_held); e = list_next(e)) {
-  //   struct lock *l = list_entry(e, struct lock, locks_held_elem);
-  //   struct list_elem *f;
-  //   // for (f = list_begin(&l->semaphore.waiters); f != list_end(&l->semaphore.waiters); f = list_next(f)) {
-  //   //   struct thread *newt = list_entry(f, struct thread, elem);
-  //   //   if (newt->priority > donee->priority) {
-  //   //     donee->priority = newt->priority;
-  //   //   }
-  //   // }
-  // }
-
-  // intr_set_level(old_level);
 }
 
 /* Sets the current thread's priority to NEW_PRIORITY. */
@@ -390,32 +371,23 @@ void thread_set_priority(int new_priority) {
   }
   
   current_thread->base_priority=new_priority;
-  
   set_donated_priority(current_thread, new_priority);
-
-  // printf("");
-  // printf("current_thread->priority: %d\n", current_thread->priority);
 
   //iter to yield if necessary
   intr_set_level(old_level);
   check_yield();
-  // thread_current()->priority = new_priority; 
-  // int x = 0;
 }
 
+/* Checks if there is a thread of higher priority than our current one in the ready queue, 
+  in which case we should yield so that thread can run */
 void check_yield() {
   struct thread *current_thread = thread_current();
   struct list_elem *e;
   bool should_yield = false;
-  // for (e = list_begin (&all_list); e != list_end (&all_list); e = list_next(e)) {
   for (e = list_begin (&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
-    // struct thread *t = list_entry(e, struct thread, elem);
     struct thread *t = list_entry(e, struct thread, elem);
     if(t->priority > current_thread->priority) {
-      // printf("t->priority: %d\n", t->priority);
-      // printf("current_thread->priority: %d\n", current_thread->priority);
       should_yield = true;
-      
     }
   }
   if (should_yield) {
@@ -424,8 +396,6 @@ void check_yield() {
     } else {
       thread_yield();
     }
-    // printf("i yielded\n");
-    // intr_yield_on_return();
   }
 }
 
@@ -565,27 +535,21 @@ static struct thread* thread_schedule_fifo(void) {
 static struct thread* thread_schedule_prio(void) {
   if (list_empty(&fifo_ready_list))
     return idle_thread;
-  // sus maybe change
-  int highest_prio = -10000;
+  int highest_prio = -1;
   struct thread* highest_prio_thread = NULL;
   struct list_elem* e;
   for (e = list_begin(&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
     struct thread *t = list_entry(e, struct thread, elem);
-    // if (thread_get_priority() > highest_prio) {
-    //   highest_prio = thread_get_priority();
     if (t->priority > highest_prio) {
       highest_prio = t->priority;
       highest_prio_thread = t;
     }
   }
-  // struct list_elem *removed = 
   if (highest_prio_thread == NULL) {
     printf("ded");
   }
   list_remove(&highest_prio_thread->elem);
   return highest_prio_thread;
-  // remove highest_prio_thread from fifo_ready_list and return it
-  // PANIC("Unimplemented scheduler policy: \"-sched=prio\"");
 }
 
 /* Fair priority scheduler */

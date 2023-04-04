@@ -335,8 +335,8 @@ void intr_handler(struct intr_frame* frame) {
   }
 
 //WODE_EDITS????
-  struct thread* t = thread_current();
-  struct process* p = t->pcb;
+  // struct thread* t = thread_current();
+  // struct process* p = t->pcb;
   // if(p->terminated && is_trap_from_userspace(frame)) {
   //   //should only
   //   pthread_exit();
