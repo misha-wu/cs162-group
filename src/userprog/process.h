@@ -80,8 +80,6 @@ struct start_pthread_arg {
   void* arg; //can be NULL
 };
 
-/////
-
 typedef struct process_status { 
   struct semaphore sema;          /* For scheduling; initialize to 0 */
   struct lock lock;               /* For ref_count updates */
