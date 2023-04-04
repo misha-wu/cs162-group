@@ -101,14 +101,11 @@ void sema_up(struct semaphore* sema) {
 
   ASSERT(sema != NULL);
 
-  // kinda sus idk what number
-  int max_prio = -10000;
+  int max_prio = -1;
   struct thread *max_prio_thread = NULL;
 
   old_level = intr_disable();
-  // printf("do i even get here1\n");
   if (!list_empty(&sema->waiters)) {
-    // printf("do i even get here2\n");
     struct list_elem *e;
     for (e = list_begin(&sema->waiters); e != list_end(&sema->waiters); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
@@ -117,21 +114,13 @@ void sema_up(struct semaphore* sema) {
         max_prio_thread = t;
       }
     }
-    // printf("do i even get here3\n");
     list_remove(&max_prio_thread->elem);
-    thread_unblock(max_prio_thread);
-  
-    // thread_unblock(list_entry(list_pop_front(&sema->waiters), struct thread, elem));
+    thread_unblock(max_prio_thread);  
   }
   sema->value++;
   intr_set_level(old_level);
-  // if (intr_context()) {
-  //   intr_yield_on_return();
-  // } else {
-  //   thread_yield();
-  // }
+  
   check_yield();
-  // thread_yield();
 }
 
 static void sema_test_helper(void* sema_);
@@ -208,10 +197,8 @@ void lock_acquire(struct lock* lock) {
   t->waiting_on = lock;
   sema_down(&lock->semaphore);
   lock->holder = t;
-  // t->locks_held
   list_push_back(&t->locks_held, &lock->locks_held_elem);
   intr_set_level(old_level);
-  //prio scheduler modifications
 
 }
 
@@ -407,33 +394,21 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
       struct semaphore_elem *s = list_entry(e, struct semaphore_elem, elem);
       struct list_elem *berkeleysocialclub = list_begin(&s->semaphore.waiters);
       struct thread* t = list_entry(berkeleysocialclub, struct thread, elem);
-      // struct thread
-      // struct thread* t = s->thread;
+      
       if (t->priority > max_prio) {
         max_waiter = s;
         max_prio = t->priority;
         max_prio_thread = t;
         max_prio_semaphore = &s->semaphore;
-        // sema_up(&s->semaphore);
       }
     }
     list_remove(&max_prio_thread->elem);
     thread_unblock(max_prio_thread);
-    // sema_up(max_prio_semaphore);
 
-
-    // struct list_elem *berkeleysocialclub = list_begin(&max_waiter->semaphore.waiters);
-    // struct thread* t = list_entry(berkeleysocialclub, struct thread, elem);
-    // list_remove(&list_entry(berkeleysocialclub, struct thread, elem)->elem);
-    // thread_unblock(list_entry(berkeleysocialclub, struct thread, elem));
     list_remove(&max_waiter->elem);
     sema_up(&max_waiter->semaphore);
-
-    // sema_up(&max_waiter.semaphore);
-    // sema_up(&max_semaphore);
   }
   check_yield();
-    // sema_up(&list_entry(list_pop_front(&cond->waiters), struct semaphore_elem, elem)->semaphore);
 }
 
 /* Wakes up all threads, if any, waiting on COND (protected by
