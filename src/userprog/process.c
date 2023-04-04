@@ -147,7 +147,7 @@ static void start_process(void* sp_arg) {
     new_pcb->lock_counter = 0;
     new_pcb->sema_counter = 0;
     new_pcb->terminated = false;
-    t->terminated = &new_pcb->terminated;
+    // t->terminated = &new_pcb->terminated;
     cond_init(&new_pcb->terminate_cond); //init condition variable for process_exit
     lock_init(&new_pcb->terminate_lock); //init paired lock for above
     new_pcb->num_alive_threads = 1;
@@ -852,9 +852,6 @@ static void start_pthread_funsies(void* exec_) {
   stub_fun sf = sparg->sf;
   pthread_fun tf = sparg->tf;
   thread_current()->pcb = sparg->pcb;
-  thread_current()->terminated = &(thread_current()->pcb->terminated);
-
-  lock_init(&thread_current()->has_been_joined_lock);
 
   struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
 

@@ -195,11 +195,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   t->base_priority = priority;
   t->priority = priority;
 
-  /// USER THREADS
-  lock_init(&(t->has_been_joined_lock));
-  t->has_been_joined = false;
-  /// USER THREADS
-
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
   kf->eip = NULL;

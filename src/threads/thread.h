@@ -98,22 +98,18 @@ struct thread {
   struct process* pcb; /* Process control block if this thread is a userprog */
 #endif
 
-  //ALARM CLOCK
+  // ALARM CLOCK
   int64_t ticks_sleep_for; // how many ticks we need to sleep for
   int64_t ticks_started_sleeping; // at what tick the thread was called timer_sleep on
   struct list_elem sleep_elem; // for sleeping threads
   
-  // //PSCHED
+  // PRIORITY SCHEDULING
   int base_priority; // priority of thread before priority donation
   struct list locks_held; //a list of the locks the thread currently holds
   struct lock* waiting_on; //lock we are waiting on
 
   // USER THREADS
   uint8_t* user_stack_pointer; // keeps track of the mapping between the user thread and kernel thread
-  bool has_been_joined; // whether somebody has called join on this thread
-  struct lock has_been_joined_lock; // to ensure that two threads can't simultaneously modify has_been_joined
-  struct list_elem im_a_thread_elem; //list_elem item for process's thread list
-  bool* terminated;
   
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
