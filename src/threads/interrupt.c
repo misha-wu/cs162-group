@@ -334,14 +334,6 @@ void intr_handler(struct intr_frame* frame) {
     yield_on_return = false;
   }
 
-//WODE_EDITS????
-  // struct thread* t = thread_current();
-  // struct process* p = t->pcb;
-  // if(p->terminated && is_trap_from_userspace(frame)) {
-  //   //should only
-  //   pthread_exit();
-  // }
-
   /* Invoke the interrupt's handler. */
   handler = intr_handlers[frame->vec_no];
   if (handler != NULL)
@@ -361,14 +353,7 @@ void intr_handler(struct intr_frame* frame) {
     in_external_intr = false;
     pic_end_of_interrupt(frame->vec_no);
 
-    // PANIC("am i terminated? t terminated %x", t->terminated);
-    // if(t->terminated != 0 && *(t->terminated) && is_trap_from_userspace(frame)) {
     if(is_trap_from_userspace(frame)) {
-      // PANIC("i actually am terminating yay");
-      //should only
-      //potential loc 2
-      // pass;
-      // pthread_exit();
       pthread_exit_wrapper();
     }
     if (yield_on_return)

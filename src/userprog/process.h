@@ -67,7 +67,6 @@ struct join_struct {
   struct list_elem elem; // to put the joined_struct inside the join_sema_list in the struct process
   bool has_been_joined;
   struct lock has_been_joined_lock;
-  bool real;
 };
 
 /* Struct to pass in as an argument to start_pthread, */
@@ -75,7 +74,6 @@ struct start_pthread_arg {
   stub_fun sf;
   pthread_fun tf;
   struct process* pcb;
-  bool success; // not in design doc
   struct semaphore sema; // not in design doc
   void* arg; //can be NULL
 };

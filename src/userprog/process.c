@@ -169,7 +169,6 @@ static void start_process(void* sp_arg) {
       sema_init(&(sema_and_thread->join_sema), 0);
       sema_and_thread->has_been_joined = false;
       lock_init(&sema_and_thread->has_been_joined_lock);
-      sema_and_thread->real = true;
 
       lock_acquire(&(new_pcb->join_list_lock));
       list_push_back(&(new_pcb->join_list), &(sema_and_thread->elem));
@@ -868,7 +867,6 @@ static void start_pthread_funsies(void* exec_) {
 
   sema_and_thread->has_been_joined = false;
   lock_init(&sema_and_thread->has_been_joined_lock);
-  sema_and_thread->real = true;
 
   lock_acquire(&(thread_current()->pcb->join_list_lock));
   // add the new join struct to our join struct list
@@ -1046,7 +1044,7 @@ void pthread_exit_main(void) {
   lock_acquire(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
-    if (js->tid == t->tid && js->real) {
+    if (js->tid == t->tid) {
       sema_up(&js->join_sema);
       break;
     }
