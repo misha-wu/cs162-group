@@ -160,7 +160,6 @@ static void start_process(void* sp_arg) {
     lock_init(&new_pcb->join_list_lock);
 
     struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
-    new_pcb->sus_initial_join = sema_and_thread;
 
     if (sema_and_thread == NULL) {
       success = false;
