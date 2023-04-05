@@ -24,6 +24,7 @@ static const struct test threads_tests[] = {
     {"priority-condvar", test_priority_condvar},
     {"priority-starve", test_priority_starve},
     {"priority-starve-sema", test_priority_starve_sema},
+    {"priority-cc5", test_priority_cc5},
     {"st-matmul", test_mt_matmul_1},
     {"mt-matmul-2", test_mt_matmul_2},
     {"mt-matmul-4", test_mt_matmul_4},
