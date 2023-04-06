@@ -254,14 +254,21 @@ bool lock_init_sys(lock_t* lock) {
   if (lock == NULL) {
     return false;
   }
+  // create a user level struct
   struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
   struct process* p = process_current();
+
+  // update the lock_counter of the process
   lock_acquire(&p->lock_counter_lock);
-  *lock = p->lock_counter;
+  *lock = p->lock_counter; // set our user lock char to the current lock count
   p->lock_counter++;
   lock_release(&p->lock_counter_lock);
+
+  // initialize fields in mylock
   mylock->user_lock = *lock;
   lock_init(&mylock->kernel_lock);
+
+  // add lock to our process's list of locks
   lock_acquire(&p->user_lock_mutex);
   list_push_back(&p->user_lock_list, &mylock->lock_elem);
   lock_release(&p->user_lock_mutex);
@@ -276,7 +283,7 @@ WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
   struct list_elem* e;
   struct thread* t = thread_current();
   struct process* p = t->pcb;
-
+  // iterate through our list of locks and check which one has the same user_lock as what was passed in
   for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list); e = list_next(e)) {
     WO_DE_LOCK_t* l = list_entry(e, struct WO_DE_LOCK, lock_elem);
     if (l->user_lock == *lock) {
@@ -295,7 +302,7 @@ WO_DE_SEMA_t* get_wrapper_from_sema(sema_t* sema) {
   struct list_elem* e;
   struct thread* t = thread_current();
   struct process* p = t->pcb;
-
+  // iterate through our list of semas and check which one has the same user_sema as what was passed in
   for (e = list_begin(&p->user_sema_list); e != list_end(&p->user_sema_list); e = list_next(e)) {
     WO_DE_SEMA_t* s = list_entry(e, struct WO_DE_SEMA, sema_elem);
     if (s->user_sema == *sema) {
@@ -306,6 +313,7 @@ WO_DE_SEMA_t* get_wrapper_from_sema(sema_t* sema) {
   return my_sema;
 }
 
+// user level lock acquire
 bool lock_acquire_sys(lock_t* lock) {
   WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
   if(my_lock == NULL) {
@@ -318,6 +326,7 @@ bool lock_acquire_sys(lock_t* lock) {
   return true;
 }
 
+// user level lock release
 bool lock_release_sys(lock_t* lock) {
   WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
   if(my_lock == NULL) {
@@ -335,22 +344,29 @@ bool sema_init_sys(sema_t* sema, int val) {
   //input validation
   if (sema == NULL || val < 0) //check valid sema pointer, valid value
     return false;
+    // create a user level struct
   struct WO_DE_SEMA* my_sema = malloc(sizeof(struct WO_DE_SEMA));
   struct process* p = process_current();
+  
+  // update the sema_counter of the process
   lock_acquire(&p->sema_counter_lock);  // acquire sema_counter_lock
-  *sema = p->sema_counter;
+  *sema = p->sema_counter; // set our user sema char to the current sema count
   p->sema_counter++;
   lock_release(&p->sema_counter_lock);  // release sema_counter_lock
+
+  // initialize fields of my_sema
   my_sema->value = val;
   my_sema->user_sema = *sema;
   sema_init(&my_sema->kernel_sema, val);
+
+  // add sema to our process's list of semas
   lock_acquire(&p->user_sema_mutex);
   list_push_back(&p->user_sema_list, &my_sema->sema_elem);
   lock_release(&p->user_sema_mutex);
   return true;
 }
 
-
+// user level sema down
 bool sema_down_sys(sema_t* sema) {
   WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
   if (my_sema == NULL) {
@@ -360,7 +376,7 @@ bool sema_down_sys(sema_t* sema) {
   return true;
 }
 
-
+// user level sema up
 bool sema_up_sys(sema_t* sema) {
   WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
   if (my_sema == NULL) {
