@@ -98,12 +98,6 @@ int open (char *name) {
   if (strcmp(p->process_name, name) == 0) {
     file_deny_write(file);
   }
-  // add file to fd table and increment next available fd
-  // int fd = p->fd_index;
-  // p->fd_table[fd] = file;
-  // p->fd_index++;
-  // lock_release(&global_file_lock);
-  // return fd;
 
   for (int i = 3; i < NUM_FILES; i++) {
     if (p->fd_table[i] == NULL) {
@@ -343,12 +337,10 @@ bool sema_init_sys(sema_t* sema, int val) {
     return false;
   struct WO_DE_SEMA* my_sema = malloc(sizeof(struct WO_DE_SEMA));
   struct process* p = process_current();
-  lock_acquire(&p->sema_counter_lock);
-  // acquire sema_counter_lock
+  lock_acquire(&p->sema_counter_lock);  // acquire sema_counter_lock
   *sema = p->sema_counter;
   p->sema_counter++;
-  lock_release(&p->sema_counter_lock);
-  // release sema_counter_lock
+  lock_release(&p->sema_counter_lock);  // release sema_counter_lock
   my_sema->value = val;
   my_sema->user_sema = *sema;
   sema_init(&my_sema->kernel_sema, val);
@@ -380,7 +372,7 @@ bool sema_up_sys(sema_t* sema) {
 
 // USER THREADS
 tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
-  return pthread_execute_funsies(sfun, tfun, arg);
+  return pthread_execute(sfun, tfun, arg);
 }
 
 void sys_pthread_exit(void) {

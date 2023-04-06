@@ -222,7 +222,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   if (priority > thread_current()->priority) {
     thread_yield();
   }
-  // check_yield();
 
   return tid;
 }
@@ -396,7 +395,6 @@ void check_yield() {
 
 
 /* Returns the current thread's priority. */
-//supposedly working
 int thread_get_priority(void) { return thread_current()->priority; }
 
 /* Sets the current thread's nice value to NICE. */

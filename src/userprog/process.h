@@ -8,7 +8,7 @@
 // These defines will be used in Project 2: Multithreading
 #define MAX_STACK_PAGES (1 << 11)
 #define MAX_THREADS 127
-#define NUM_FILES 1024
+#define NUM_FILES 1024 // number of files our FDT holds
 
 
 /* PIDs and TIDs are the same type. PID should be
@@ -33,7 +33,6 @@ struct process {
   struct process_status* my_own;  /* Stores the current process's process_status */
   struct list children;           /* Pintos list of children's process_status */
   struct file* fd_table[NUM_FILES];     /* Array of file* storing mappings from file descriptors to files */
-  int fd_index;                   /* The next available file descriptor */
 
   // USER THREADS
   struct list join_list;          // a list of join_structs

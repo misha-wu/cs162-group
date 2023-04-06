@@ -134,7 +134,6 @@ static void start_process(void* sp_arg) {
     strlcpy(t->pcb->process_name, t->name, sizeof t->name);
 
     // our first available file descriptor is 3 because 0, 1, and 2 are reserved for stdin, stdout, stderr
-    new_pcb->fd_index = 3;
     for (int i = 0; i < NUM_FILES; i++) {
       new_pcb->fd_table[i] = NULL;
     }
@@ -160,6 +159,7 @@ static void start_process(void* sp_arg) {
     list_init(&(new_pcb->join_list));
     lock_init(&new_pcb->join_list_lock);
 
+    // we also want the thread initially created with a process to be able to be joined on
     struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
 
     if (sema_and_thread == NULL) {
@@ -781,12 +781,11 @@ pid_t get_pid(struct process* p) { return (pid_t)p->main_thread->tid; }
    This function will be implemented in Project 2: Multithreading. For
    now, it does nothing. You may find it necessary to change the
    function signature. */
-// bool setup_thread(void (**eip)(void) UNUSED, void** esp UNUSED) { return false; }
 bool setup_thread(void (**eip)(void), void** esp) {
-
+  // set up a page for the user thread stack
   uint8_t* vaddr = PHYS_BASE - PGSIZE;
   int num_stack_pages = 0;
-  // TODO: check MAX_STACK_PAGES
+  // iterate through pages until we find one that's not currently mapped
   while (vaddr > 0 && num_stack_pages < MAX_STACK_PAGES) {
     if (pagedir_get_page(thread_current()->pcb->pagedir, vaddr) == NULL) {
       break;
@@ -794,6 +793,7 @@ bool setup_thread(void (**eip)(void), void** esp) {
     vaddr = (char *) vaddr - PGSIZE;
     num_stack_pages++;
   }
+  // check if we weren't able to find any available pages
   if (vaddr <= 0 || num_stack_pages >= MAX_STACK_PAGES) {
     return false;
   }
@@ -810,6 +810,8 @@ bool setup_thread(void (**eip)(void), void** esp) {
   return success;
 }
 
+static void start_pthread(void* exec_);
+
 /* Starts a new thread with a new user stack running SF, which takes
    TF and ARG as arguments on its user stack. This new thread may be
    scheduled (and may even exit) before pthread_execute () returns.
@@ -819,11 +821,7 @@ bool setup_thread(void (**eip)(void), void** esp) {
    This function will be implemented in Project 2: Multithreading and
    should be similar to process_execute (). For now, it does nothing.
    */
-// tid_t pthread_execute(stub_fun sf UNUSED, pthread_fun tf UNUSED, void* arg UNUSED) { // return -1; // starter code}
-
-static void start_pthread_funsies(void* exec_);
-
-tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) { 
+tid_t pthread_execute(stub_fun sf, pthread_fun tf, void* arg) { 
   tid_t tid;
   // struct to pass in as an argument to start_process, since it only takes one void* argument
   struct start_pthread_arg* sparg = palloc_get_page(0);
@@ -837,8 +835,8 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   sema_init(&(sparg->sema), 0);
 
   /* Create a new thread to execute stub function. */
-  tid = thread_create(thread_current()->name, PRI_DEFAULT, start_pthread_funsies, sparg);
-  sema_down(&(sparg->sema));
+  tid = thread_create(thread_current()->name, PRI_DEFAULT, start_pthread, sparg);
+  sema_down(&(sparg->sema)); // ensure we're done with sparg before we can free it
   palloc_free_page(sparg);
   if (tid == TID_ERROR) {
     return TID_ERROR;
@@ -846,13 +844,18 @@ tid_t pthread_execute_funsies(stub_fun sf, pthread_fun tf, void* arg) {
   return tid;
 }
 
-static void start_pthread_funsies(void* exec_) {
-
+/* A thread function that creates a new user thread and starts it
+   running. Responsible for adding itself to the list of threads in
+   the PCB.
+   This function will be implemented in Project 2: Multithreading and
+   should be similar to start_process (). For now, it does nothing. */
+static void start_pthread(void* exec_) {
   struct start_pthread_arg* sparg = (struct start_pthread_arg*) exec_;
   stub_fun sf = sparg->sf;
   pthread_fun tf = sparg->tf;
   thread_current()->pcb = sparg->pcb;
 
+  // create struct so that other threads can join on this thread
   struct join_struct* sema_and_thread = malloc(sizeof(struct join_struct));
 
   if (sema_and_thread == NULL) {
@@ -861,21 +864,22 @@ static void start_pthread_funsies(void* exec_) {
 
   sema_and_thread->tid = thread_current()->tid;
   sema_init(&(sema_and_thread->join_sema), 0);
-
   sema_and_thread->has_been_joined = false;
   lock_init(&sema_and_thread->has_been_joined_lock);
 
-  lock_acquire(&(thread_current()->pcb->join_list_lock));
   // add the new join struct to our join struct list
+  lock_acquire(&(thread_current()->pcb->join_list_lock));
   list_push_back(&(thread_current()->pcb->join_list), &(sema_and_thread->elem));
   lock_release(&(thread_current()->pcb->join_list_lock));
 
+  // update the number of alive threads in the process
   lock_acquire(&thread_current()->pcb->terminate_lock);
   thread_current()->pcb->num_alive_threads++;
   lock_release(&thread_current()->pcb->terminate_lock);
 
   void* arg = sparg->arg;
 
+  // set up interrupt frame
   struct intr_frame if_;
   bool success;
   
@@ -885,15 +889,18 @@ static void start_pthread_funsies(void* exec_) {
   if_.eflags = FLAG_IF | FLAG_MBS;
 
   process_activate();
+  // set up the user stack
   success = setup_thread(&if_.eip, &if_.esp);
 
   if (!success) {
     return TID_ERROR;
   }
 
+  // instruction pointer should be stub function
   if_.eip = sparg->sf;
   thread_current()->user_stack_pointer = if_.esp;
 
+  // we are done wtih sparg
   sema_up(&(sparg->sema));
 
   // pushing arguments onto the stack (arg, then tf)
@@ -904,7 +911,7 @@ static void start_pthread_funsies(void* exec_) {
   sendhelp = (int32_t*) if_.esp;
   *sendhelp = tf;
 
-  // fake return address
+  // push fake return address onto the stack
   if_.esp = (char *) if_.esp - 4;
   int32_t zero = 0;
   sendhelp = (int32_t *) if_.esp;
@@ -932,12 +939,12 @@ tid_t pthread_join(tid_t tid) {
   struct list_elem* e;
   bool found = false;
   struct join_struct* join = NULL;
+  // iterate through the list of join structs
   for (e = list_begin(&(p->join_list)); e != list_end(&(p->join_list)); e = list_next(e)) {
     join = list_entry(e, struct join_struct, elem);
-    lock_acquire(&join->has_been_joined_lock);
-    if (tid == join->tid) {
-      
-      if (join->has_been_joined) {
+    if (tid == join->tid) { // this is the correct join struct
+      lock_acquire(&join->has_been_joined_lock);
+      if (join->has_been_joined) { // this thread has been joined on before, we can't join on it again
         lock_release(&join->has_been_joined_lock);
         return TID_ERROR;
       }
@@ -946,8 +953,6 @@ tid_t pthread_join(tid_t tid) {
       lock_release(&join->has_been_joined_lock);
       sema_down(&(join->join_sema));
       break;
-    } else {
-      lock_release(&join->has_been_joined_lock);
     }
   }
 
@@ -957,10 +962,17 @@ tid_t pthread_join(tid_t tid) {
 
   lock_acquire(&p->join_list_lock);
   list_remove(&join->elem);
-
   lock_release(&p->join_list_lock);
   
   return tid;
+}
+
+// check if we have terminated and exit if so, else do nothing
+// called at the end of interrupt handler
+void pthread_exit_wrapper() {
+  if (thread_current()->pcb->terminated) {
+    pthread_exit();
+  }
 }
 
 // decrement the number of alive threads, check if num is 1 so we 
@@ -973,13 +985,6 @@ void update_terminate_cond() {
     cond_signal(&p->terminate_cond, &p->terminate_lock);
   }
   lock_release(&p->terminate_lock);
-}
-
-// check if we have terminated and exit if so, called at the end of interrupt handler
-void pthread_exit_wrapper() {
-  if (thread_current()->pcb->terminated) {
-    pthread_exit();
-  }
 }
 
 /* Free the current thread's resources. Most resources will
@@ -1001,9 +1006,11 @@ void pthread_exit(void) {
     pthread_exit_main();
     return;
   }
-  void* vaddr = pg_round_down(t->user_stack_pointer) - PGSIZE;
-  void* page = pagedir_get_page(t->pcb->pagedir, vaddr);
+
+  void* vaddr = pg_round_down(t->user_stack_pointer) - PGSIZE; // get virtual page of user stack
+  void* page = pagedir_get_page(t->pcb->pagedir, vaddr); // get physical page
   
+  // we want to remove the user stack page from our page directory and free the page
   pagedir_clear_page(t->pcb->pagedir, vaddr);
   palloc_free_page(page);
 
@@ -1013,7 +1020,7 @@ void pthread_exit(void) {
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
-      sema_up(&js->join_sema);
+      sema_up(&js->join_sema); // signal that this thread is done, in case any thread has joined/will join on it
       break;
     }
   }
@@ -1039,7 +1046,7 @@ void pthread_exit_main(void) {
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
-      sema_up(&js->join_sema);
+      sema_up(&js->join_sema); // wake up any thread that is waiting on the main thread
       break;
     }
   }
@@ -1047,7 +1054,7 @@ void pthread_exit_main(void) {
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (!js->has_been_joined)
-      pthread_join(js->tid);
+      pthread_join(js->tid); // join on the remaining unjoined threads in the process
   }
   
   exit(0);
