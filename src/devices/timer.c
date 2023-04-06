@@ -99,6 +99,7 @@ void timer_sleep(int64_t ticks) {
 
   t->ticks_sleep_for = ticks;
   t->ticks_started_sleeping = timer_ticks();
+  // add thread to our list of sleeping threads
   list_insert_ordered(&sleeping_threads, &(t->sleep_elem), *sleep_compare, NULL);
   thread_block();
   intr_set_level(old_level);
@@ -154,11 +155,12 @@ static void timer_interrupt(struct intr_frame* args UNUSED) {
   struct list_elem* e;
   int prio = thread_current()->priority;
   bool yield = false;
+  // iterate through threads to check if anyone can be woken up
   for (e = list_begin (&sleeping_threads); e != list_end (&sleeping_threads);) {
     struct thread *t = list_entry(e, struct thread, sleep_elem);
     struct list_elem* next_e = list_next(e);
 
-    if(timer_elapsed(t->ticks_started_sleeping) >= t->ticks_sleep_for) {
+    if(timer_elapsed(t->ticks_started_sleeping) >= t->ticks_sleep_for) { // i'm awake now
       int new_prio = t->priority;
       list_remove(e);
       e = next_e;

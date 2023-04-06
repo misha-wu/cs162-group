@@ -1016,7 +1016,6 @@ void pthread_exit(void) {
 
   struct list_elem* e;
 
-  lock_acquire(&(thread_current()->pcb->join_list_lock));  
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
@@ -1024,7 +1023,6 @@ void pthread_exit(void) {
       break;
     }
   }
-  lock_release(&(thread_current()->pcb->join_list_lock));
   
   thread_exit();
 }
@@ -1042,7 +1040,6 @@ void pthread_exit_main(void) {
   struct process* p = t->pcb;
   struct list_elem* e;
   
-  lock_acquire(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (js->tid == t->tid) {
@@ -1050,7 +1047,6 @@ void pthread_exit_main(void) {
       break;
     }
   }
-  lock_release(&(p->join_list_lock));
   for (e = list_begin(&p->join_list); e != list_end(&p->join_list); e = list_next(e)) {
     struct join_struct* js = list_entry(e, struct join_struct, elem);
     if (!js->has_been_joined)

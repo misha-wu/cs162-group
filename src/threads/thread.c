@@ -341,13 +341,12 @@ void thread_foreach(thread_action_func* func, void* aux) {
   }
 }
 
-//called with interrupts off
+// implements priority donation
 void set_donated_priority(struct thread* donee, int new_priority) {
-
-  if(new_priority > donee->priority) {
+  if(new_priority > donee->priority) { // only want to update if we can do better
     donee->priority=new_priority;
-      while(donee && donee->waiting_on) {
-      if(new_priority > donee->priority) {
+    while(donee && donee->waiting_on) { // go down the chain of thread that we are waiting on, the thread it is waiting on, etc.
+      if(new_priority > donee->priority) { // only want to update if we can do better
         donee->priority = new_priority;
       }
       donee = donee->waiting_on->holder;
@@ -361,10 +360,12 @@ void thread_set_priority(int new_priority) {
   enum intr_level old_level = intr_disable();
   struct thread *current_thread = thread_current();
   if (current_thread->base_priority == current_thread->priority || new_priority > current_thread->priority) {
+    // if the effective priority of the thread comes from the base priority, or the new priority is greater than the current priority, then we need to update effective priority
     current_thread->priority = new_priority;
   }
-  
+  // always need to update base priority
   current_thread->base_priority=new_priority;
+  // handle any priority donation
   set_donated_priority(current_thread, new_priority);
 
   //iter to yield if necessary

@@ -107,6 +107,7 @@ void sema_up(struct semaphore* sema) {
   old_level = intr_disable();
   if (!list_empty(&sema->waiters)) {
     struct list_elem *e;
+    // find the max priority thread that is waiting
     for (e = list_begin(&sema->waiters); e != list_end(&sema->waiters); e = list_next(e)) {
       struct thread *t = list_entry(e, struct thread, elem);
       if (t->priority > max_prio) {
@@ -114,6 +115,7 @@ void sema_up(struct semaphore* sema) {
         max_prio_thread = t;
       }
     }
+    // remove and unblock the max priority thread
     list_remove(&max_prio_thread->elem);
     thread_unblock(max_prio_thread);  
   }
@@ -192,7 +194,7 @@ void lock_acquire(struct lock* lock) {
 
   struct thread* t = thread_current();
   if(lock->holder) {
-    set_donated_priority(lock->holder, t->priority); //set if better
+    set_donated_priority(lock->holder, t->priority); //donate priority to the thread we are waiting on (only has effect if we are higher priority)
   }
   t->waiting_on = lock;
   sema_down(&lock->semaphore);
@@ -234,6 +236,8 @@ void lock_release(struct lock* lock) {
   list_remove(&lock->locks_held_elem);
   t->priority = t->base_priority;
   struct list_elem *e;
+  // determine new priority of the thread now that we will release the lock
+  // iterate through the locks we currently hold, get the highest priority of (own priority, priority of the threads donating to those locks)
   for (e = list_begin (&t->locks_held); e != list_end (&t->locks_held); e = list_next(e)) {
     struct lock *l = list_entry(e, struct lock, locks_held_elem);
     struct list_elem *f;
@@ -389,6 +393,7 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
     struct semaphore_elem* max_waiter;
     int max_prio = -10000;
 
+    // find the highest priority thread waiting
     struct list_elem *e;
     for (e = list_begin(&cond->waiters); e != list_end(&cond->waiters); e = list_next(e)) {
       struct semaphore_elem *s = list_entry(e, struct semaphore_elem, elem);
@@ -402,9 +407,9 @@ void cond_signal(struct condition* cond, struct lock* lock UNUSED) {
         max_prio_semaphore = &s->semaphore;
       }
     }
+    // wake up max priority thread
     list_remove(&max_prio_thread->elem);
     thread_unblock(max_prio_thread);
-
     list_remove(&max_waiter->elem);
     sema_up(&max_waiter->semaphore);
   }
