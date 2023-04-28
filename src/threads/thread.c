@@ -115,8 +115,6 @@ void thread_init(void) {
   init_thread(initial_thread, "main", PRI_DEFAULT);
   initial_thread->status = THREAD_RUNNING;
   initial_thread->tid = allocate_tid();
-
-  initial_thread->priority = PRI_DEFAULT;
 }
 
 /* Starts preemptive thread scheduling by enabling interrupts.
@@ -192,8 +190,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
   /* Initialize thread. */
   init_thread(t, name, priority);
   tid = t->tid = allocate_tid();
-  t->base_priority = priority;
-  t->priority = priority;
 
   /* Stack frame for kernel_thread(). */
   kf = alloc_frame(t, sizeof *kf);
@@ -218,10 +214,6 @@ tid_t thread_create(const char* name, int priority, thread_func* function, void*
 
   /* Add to run queue. */
   thread_unblock(t);
-
-  if (priority > thread_current()->priority) {
-    thread_yield();
-  }
 
   return tid;
 }
@@ -248,7 +240,7 @@ static void thread_enqueue(struct thread* t) {
   ASSERT(intr_get_level() == INTR_OFF);
   ASSERT(is_thread(t));
 
-  if (active_sched_policy == SCHED_FIFO || active_sched_policy == SCHED_PRIO)
+  if (active_sched_policy == SCHED_FIFO)
     list_push_back(&fifo_ready_list, &t->elem);
   else
     PANIC("Unimplemented scheduling policy value: %d", active_sched_policy);
@@ -341,59 +333,8 @@ void thread_foreach(thread_action_func* func, void* aux) {
   }
 }
 
-// implements priority donation
-void set_donated_priority(struct thread* donee, int new_priority) {
-  if(new_priority > donee->priority) { // only want to update if we can do better
-    donee->priority=new_priority;
-    while(donee && donee->waiting_on) { // go down the chain of thread that we are waiting on, the thread it is waiting on, etc.
-      if(new_priority > donee->priority) { // only want to update if we can do better
-        donee->priority = new_priority;
-      }
-      donee = donee->waiting_on->holder;
-    }
-  }
-}
-
 /* Sets the current thread's priority to NEW_PRIORITY. */
-
-void thread_set_priority(int new_priority) { 
-  enum intr_level old_level = intr_disable();
-  struct thread *current_thread = thread_current();
-  if (current_thread->base_priority == current_thread->priority || new_priority > current_thread->priority) {
-    // if the effective priority of the thread comes from the base priority, or the new priority is greater than the current priority, then we need to update effective priority
-    current_thread->priority = new_priority;
-  }
-  // always need to update base priority
-  current_thread->base_priority=new_priority;
-  // handle any priority donation
-  set_donated_priority(current_thread, new_priority);
-
-  //iter to yield if necessary
-  intr_set_level(old_level);
-  check_yield();
-}
-
-/* Checks if there is a thread of higher priority than our current one in the ready queue, 
-  in which case we should yield so that thread can run */
-void check_yield() {
-  struct thread *current_thread = thread_current();
-  struct list_elem *e;
-  bool should_yield = false;
-  for (e = list_begin (&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
-    struct thread *t = list_entry(e, struct thread, elem);
-    if(t->priority > current_thread->priority) {
-      should_yield = true;
-    }
-  }
-  if (should_yield) {
-    if (intr_context()) {
-      intr_yield_on_return();
-    } else {
-      thread_yield();
-    }
-  }
-}
-
+void thread_set_priority(int new_priority) { thread_current()->priority = new_priority; }
 
 /* Returns the current thread's priority. */
 int thread_get_priority(void) { return thread_current()->priority; }
@@ -493,13 +434,8 @@ static void init_thread(struct thread* t, const char* name, int priority) {
   strlcpy(t->name, name, sizeof t->name);
   t->stack = (uint8_t*)t + PGSIZE;
   t->priority = priority;
-  t->base_priority = priority;
   t->pcb = NULL;
   t->magic = THREAD_MAGIC;
-
-  //WODEINIT
-  list_init(&t->locks_held);
-
 
   old_level = intr_disable();
   list_push_back(&all_list, &t->allelem);
@@ -527,23 +463,7 @@ static struct thread* thread_schedule_fifo(void) {
 
 /* Strict priority scheduler */
 static struct thread* thread_schedule_prio(void) {
-  if (list_empty(&fifo_ready_list))
-    return idle_thread;
-  int highest_prio = -1;
-  struct thread* highest_prio_thread = NULL;
-  struct list_elem* e;
-  for (e = list_begin(&fifo_ready_list); e != list_end (&fifo_ready_list); e = list_next(e)) {
-    struct thread *t = list_entry(e, struct thread, elem);
-    if (t->priority > highest_prio) {
-      highest_prio = t->priority;
-      highest_prio_thread = t;
-    }
-  }
-  if (highest_prio_thread == NULL) {
-    printf("ded");
-  }
-  list_remove(&highest_prio_thread->elem);
-  return highest_prio_thread;
+  PANIC("Unimplemented scheduler policy: \"-sched=prio\"");
 }
 
 /* Fair priority scheduler */

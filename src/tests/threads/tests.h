@@ -25,7 +25,6 @@ extern test_func test_priority_sema;
 extern test_func test_priority_condvar;
 extern test_func test_priority_starve;
 extern test_func test_priority_starve_sema;
-extern test_func test_priority_cc5;
 extern test_func test_mt_matmul_1;
 extern test_func test_mt_matmul_2;
 extern test_func test_mt_matmul_4;

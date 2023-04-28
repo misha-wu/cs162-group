@@ -8,7 +8,7 @@ priority-donate-multiple priority-donate-multiple2 \
 priority-donate-nest priority-donate-sema priority-donate-lower \
 priority-fifo priority-preempt priority-sema priority-condvar \
 st-matmul mt-matmul-2 mt-matmul-4 mt-matmul-16 \
-priority-donate-chain priority-starve priority-starve-sema priority-cc5 \
+priority-donate-chain priority-starve priority-starve-sema \
 smfs-starve-0 smfs-starve-1 smfs-starve-2 smfs-starve-4 \
 smfs-starve-8 smfs-starve-16 smfs-starve-64 smfs-starve-256 \
 smfs-prio-change \
@@ -40,7 +40,6 @@ tests/threads_SRC += tests/threads/priority-condvar.c
 tests/threads_SRC += tests/threads/priority-donate-chain.c
 tests/threads_SRC += tests/threads/priority-starve.c
 tests/threads_SRC += tests/threads/priority-starve-sema.c
-tests/threads_SRC += tests/threads/priority-cc5.c
 tests/threads_SRC += tests/threads/mt-matmul.c
 tests/threads_SRC += tests/threads/mlfqs-load-1.c
 tests/threads_SRC += tests/threads/mlfqs-load-60.c

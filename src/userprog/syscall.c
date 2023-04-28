@@ -34,7 +34,7 @@ bool valid_fd(int fd) {
   if (fd == 0 || fd == 1 || fd == 2) {
     return true;
   }
-  if (fd >= NUM_FILES || p->fd_table[fd] == NULL) {
+  if (fd >= p->fd_index || p->fd_table[fd] == NULL) {
     return false;
   }
   return true;
@@ -56,10 +56,7 @@ bool valid_address(void* address) {
 
 // exit syscall
 int exit(int status) {
-  struct thread* t = thread_current();
-  struct process* p = t->pcb;
-
-  printf("%s: exit(%d)\n", p->process_name, status);
+  printf("%s: exit(%d)\n", thread_current()->pcb->process_name, status);
   exit_helper(status);
   return status;
 }
@@ -98,16 +95,12 @@ int open (char *name) {
   if (strcmp(p->process_name, name) == 0) {
     file_deny_write(file);
   }
-
-  for (int i = 3; i < NUM_FILES; i++) {
-    if (p->fd_table[i] == NULL) {
-      p->fd_table[i] = file;
-      lock_release(&global_file_lock);
-      return i;
-    }
-  }
+  // add file to fd table and increment next available fd
+  int fd = p->fd_index;
+  p->fd_table[fd] = file;
+  p->fd_index++;
   lock_release(&global_file_lock);
-  return -1;
+  return fd;
 }
 
 // remove syscall
@@ -250,159 +243,6 @@ double compute_e (int n) {
   return sys_sum_to_e(n);
 }
 
-bool lock_init_sys(lock_t* lock) {
-  if (lock == NULL) {
-    return false;
-  }
-  // create a user level struct
-  struct WO_DE_LOCK* mylock = malloc(sizeof(struct WO_DE_LOCK));
-  struct process* p = process_current();
-
-  // update the lock_counter of the process
-  lock_acquire(&p->lock_counter_lock);
-  *lock = p->lock_counter; // set our user lock char to the current lock count
-  p->lock_counter++;
-  lock_release(&p->lock_counter_lock);
-
-  // initialize fields in mylock
-  mylock->user_lock = *lock;
-  lock_init(&mylock->kernel_lock);
-
-  // add lock to our process's list of locks
-  lock_acquire(&p->user_lock_mutex);
-  list_push_back(&p->user_lock_list, &mylock->lock_elem);
-  lock_release(&p->user_lock_mutex);
-  return true;
-}
-
-WO_DE_LOCK_t* get_wrapper_from_lock(lock_t* lock) {
-  if (lock == NULL) {
-    return NULL;
-  }
-  WO_DE_LOCK_t* my_lock = NULL;
-  struct list_elem* e;
-  struct thread* t = thread_current();
-  struct process* p = t->pcb;
-  // iterate through our list of locks and check which one has the same user_lock as what was passed in
-  for (e = list_begin(&p->user_lock_list); e != list_end(&p->user_lock_list); e = list_next(e)) {
-    WO_DE_LOCK_t* l = list_entry(e, struct WO_DE_LOCK, lock_elem);
-    if (l->user_lock == *lock) {
-      my_lock = l;
-      break;
-    }
-  }
-  return my_lock;
-}
-
-
-WO_DE_SEMA_t* get_wrapper_from_sema(sema_t* sema) {
-  if (sema == NULL)
-    return NULL;
-  WO_DE_SEMA_t* my_sema = NULL;
-  struct list_elem* e;
-  struct thread* t = thread_current();
-  struct process* p = t->pcb;
-  // iterate through our list of semas and check which one has the same user_sema as what was passed in
-  for (e = list_begin(&p->user_sema_list); e != list_end(&p->user_sema_list); e = list_next(e)) {
-    WO_DE_SEMA_t* s = list_entry(e, struct WO_DE_SEMA, sema_elem);
-    if (s->user_sema == *sema) {
-      my_sema = s;
-      break;
-    }
-  }
-  return my_sema;
-}
-
-// user level lock acquire
-bool lock_acquire_sys(lock_t* lock) {
-  WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
-  if(my_lock == NULL) {
-    return false;
-  }
-  if(lock_held_by_current_thread(&(my_lock->kernel_lock))) {
-    return false;
-  }
-  lock_acquire(&(my_lock->kernel_lock));
-  return true;
-}
-
-// user level lock release
-bool lock_release_sys(lock_t* lock) {
-  WO_DE_LOCK_t* my_lock = get_wrapper_from_lock(lock);
-  if(my_lock == NULL) {
-    return false;
-  }
-  if(!lock_held_by_current_thread(&(my_lock->kernel_lock))) {
-    return false;
-  }
-  lock_release(&(my_lock->kernel_lock));
-  return true;
-}
-
-
-bool sema_init_sys(sema_t* sema, int val) {
-  //input validation
-  if (sema == NULL || val < 0) //check valid sema pointer, valid value
-    return false;
-    // create a user level struct
-  struct WO_DE_SEMA* my_sema = malloc(sizeof(struct WO_DE_SEMA));
-  struct process* p = process_current();
-  
-  // update the sema_counter of the process
-  lock_acquire(&p->sema_counter_lock);  // acquire sema_counter_lock
-  *sema = p->sema_counter; // set our user sema char to the current sema count
-  p->sema_counter++;
-  lock_release(&p->sema_counter_lock);  // release sema_counter_lock
-
-  // initialize fields of my_sema
-  my_sema->value = val;
-  my_sema->user_sema = *sema;
-  sema_init(&my_sema->kernel_sema, val);
-
-  // add sema to our process's list of semas
-  lock_acquire(&p->user_sema_mutex);
-  list_push_back(&p->user_sema_list, &my_sema->sema_elem);
-  lock_release(&p->user_sema_mutex);
-  return true;
-}
-
-// user level sema down
-bool sema_down_sys(sema_t* sema) {
-  WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
-  if (my_sema == NULL) {
-    return false;
-  }
-  sema_down(&my_sema->kernel_sema);
-  return true;
-}
-
-// user level sema up
-bool sema_up_sys(sema_t* sema) {
-  WO_DE_SEMA_t* my_sema = get_wrapper_from_sema(sema);
-  if (my_sema == NULL) {
-    return false;
-  }
-  sema_up(&my_sema->kernel_sema);
-  return true;
-}
-
-// USER THREADS
-tid_t sys_pthread_create(stub_fun sfun, pthread_fun tfun, const void* arg) {
-  return pthread_execute(sfun, tfun, arg);
-}
-
-void sys_pthread_exit(void) {
-  pthread_exit();
-}
-
-tid_t sys_pthread_join(tid_t tid) {
-  return pthread_join(tid);
-}
-
-tid_t get_tid_sys() {
-  return thread_current()->tid;
-}
-
 /*
 call helper, which does argument checking.
 */
@@ -463,25 +303,5 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = write(fd, buffer, size);
   } else if (args[0] == SYS_COMPUTE_E) {
     f->eax = compute_e(args[1]);
-  } else if (args[0] == SYS_LOCK_INIT) {
-    f->eax = lock_init_sys(args[1]);
-  } else if (args[0] == SYS_LOCK_ACQUIRE) {
-    f->eax = lock_acquire_sys(args[1]);
-  } else if (args[0] == SYS_LOCK_RELEASE) {
-    f->eax = lock_release_sys(args[1]);
-  } else if (args[0] == SYS_SEMA_INIT) {
-    f->eax = sema_init_sys(args[1], args[2]);
-  } else if (args[0] == SYS_SEMA_DOWN) {
-    f->eax = sema_down_sys(args[1]);
-  } else if (args[0] == SYS_SEMA_UP) {
-    f->eax = sema_up_sys(args[1]);
-  } else if (args[0] == SYS_PT_CREATE) {
-    f->eax = sys_pthread_create(args[1], args[2], args[3]);
-  } else if (args[0] == SYS_PT_EXIT) {
-    sys_pthread_exit();
-  } else if (args[0] == SYS_PT_JOIN) {
-    f->eax = sys_pthread_join(args[1]);
-  } else if (args[0] == SYS_GET_TID) {
-    f->eax = get_tid_sys(args[1]);
   }
 }

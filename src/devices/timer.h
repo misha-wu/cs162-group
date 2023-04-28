@@ -19,7 +19,6 @@ void timer_msleep(int64_t milliseconds);
 void timer_usleep(int64_t microseconds);
 void timer_nsleep(int64_t nanoseconds);
 
-
 /* Busy waits. */
 void timer_mdelay(int64_t milliseconds);
 void timer_udelay(int64_t microseconds);

@@ -98,19 +98,6 @@ struct thread {
   struct process* pcb; /* Process control block if this thread is a userprog */
 #endif
 
-  // ALARM CLOCK
-  int64_t ticks_sleep_for;            // how many ticks we need to sleep for
-  int64_t ticks_started_sleeping;     // at what tick the thread was called timer_sleep on
-  struct list_elem sleep_elem;        // to add thread to our sleeping_threads list
-  
-  // PRIORITY SCHEDULING
-  int base_priority;                  // priority of thread before any priority donations
-  struct list locks_held;             // a list of the locks the thread currently holds
-  struct lock* waiting_on;            // lock this thread is waiting on
-
-  // USER THREADS
-  uint8_t* user_stack_pointer;        // stack pointer of the user thread corresponding to this kernel thread
-  
   /* Owned by thread.c. */
   unsigned magic; /* Detects stack overflow. */
 };
@@ -161,5 +148,5 @@ int thread_get_nice(void);
 void thread_set_nice(int);
 int thread_get_recent_cpu(void);
 int thread_get_load_avg(void);
-void check_yield();
+
 #endif /* threads/thread.h */
