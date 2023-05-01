@@ -5,11 +5,15 @@
 #include "filesys/filesys.h"
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+// #include "filesys/directory.h"
+#include "userprog/process.h"
+
 
 /* A directory. */
 struct dir {
   struct inode* inode; /* Backing store. */
   off_t pos;           /* Current position. */
+  struct dir* parent;
 };
 
 /* A single directory entry. */
@@ -23,6 +27,98 @@ struct dir_entry {
    given SECTOR.  Returns true if successful, false on failure. */
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
   return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+}
+
+// bool dir_create_2(block_sector_t sector, size_t entry_cnt, struct dir* parent) {
+//   bool success = inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+//   if (!success) return false;
+
+// }
+
+/* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
+   next call will return the next file name part. Returns 1 if successful, 0 at
+   end of string, -1 for a too-long file name part. */
+static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
+  const char* src = *srcp;
+  char* dst = part;
+
+  /* Skip leading slashes.  If it's all slashes, we're done. */
+  while (*src == '/')
+    src++;
+  if (*src == '\0')
+    return 0;
+
+  /* Copy up to NAME_MAX character from SRC to DST.  Add null terminator. */
+  while (*src != '/' && *src != '\0') {
+    if (dst < part + NAME_MAX)
+      *dst++ = *src;
+    else
+      return -1;
+    src++;
+  }
+  *dst = '\0';
+
+  /* Advance source pointer. */
+  *srcp = src;
+  return 1;
+}
+
+static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
+  int status;
+  while (status = get_next_part(part, srcp) == 1);
+  return status;
+}
+
+struct inode* path_resolution_funsies(const char* filename, struct dir* cwd, bool last_should_exist) {
+  printf("asldfjkalskdfjalskdfjalds\n");
+  struct dir* curr_dir;
+  printf("filename[0] is %c\n", *filename);
+  if (filename[0] == '/') {
+    printf("wgat\n");
+    curr_dir = dir_open_root();
+  } else {
+    printf("should use cwd\n");
+    curr_dir = dir_reopen(cwd);
+  }
+  if (curr_dir == NULL) {
+    return NULL;
+  }
+  char part[NAME_MAX + 1];
+  bool was_file;
+  int status = get_next_part(part, &filename);
+  while (true) {
+    
+    if (status == 0) {
+      break;
+    }
+    if (status == -1) {
+      return NULL;
+    }
+    printf("part %s\n", part);
+    struct inode* inode;
+    status = get_next_part(part, &filename);
+    bool found = dir_lookup(curr_dir, part, &inode);
+    if (!found) {
+      if (status == 0 && !last_should_exist) {
+        struct inode* help = curr_dir->inode;
+        close(curr_dir);
+        return help;
+      }
+      return NULL;
+    }
+    
+    bool is_dir = get_is_dir(inode);
+    dir_close(curr_dir);
+    if (status == 0) {
+      return inode;
+    }
+    if (is_dir) {
+      curr_dir = dir_open(inode);
+    }
+  }
+  dir_close(curr_dir);
+  return NULL;
+
 }
 
 /* Opens and returns the directory for the given INODE, of which

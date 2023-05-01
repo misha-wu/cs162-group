@@ -7,6 +7,8 @@
 #include "filesys/free-map.h"
 #include "threads/malloc.h"
 #include "threads/synch.h"
+// #include "filesys/directory.h"
+
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
@@ -38,6 +40,149 @@ struct inode {
   int deny_write_cnt;     /* 0: writes ok, >0: deny writes. */
   struct inode_disk data; /* Inode content. */
 };
+
+struct inode_disk* get_id(struct inode* inode) {
+  struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
+  if (id == NULL) {
+    return false; // ???
+  }
+  block_read(fs_device, inode->sector, id);
+  return id;
+}
+
+bool get_is_dir(struct inode* inode) {
+  struct inode_disk* id = get_id(inode);
+  bool is_dir = id->is_dir;
+  free(id);
+  return is_dir;
+}
+
+// /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
+//    next call will return the next file name part. Returns 1 if successful, 0 at
+//    end of string, -1 for a too-long file name part. */
+// static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
+//   const char* src = *srcp;
+//   char* dst = part;
+
+//   /* Skip leading slashes.  If it's all slashes, we're done. */
+//   while (*src == '/')
+//     src++;
+//   if (*src == '\0')
+//     return 0;
+
+//   /* Copy up to NAME_MAX character from SRC to DST.  Add null terminator. */
+//   while (*src != '/' && *src != '\0') {
+//     if (dst < part + NAME_MAX)
+//       *dst++ = *src;
+//     else
+//       return -1;
+//     src++;
+//   }
+//   *dst = '\0';
+
+//   /* Advance source pointer. */
+//   *srcp = src;
+//   return 1;
+// }
+
+// static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
+//   while (status = get_next_part(part, srcp) == 1);
+//   return status;
+// }
+
+// struct inode* path_resolution(const char* filename, bool last_should_exist) {
+//   struct dir* curr_dir;
+//   if (filename[0] != '/') {
+//     curr_dir = dir_open_root();
+//   } else {
+//     curr_dir = dir_reopen(process_current()->cwd);
+//   }
+//   if (curr_dir == NULL) {
+//     return NULL;
+//   }
+//   char part[NAME_MAX + 1];
+//   bool was_file;
+//   int status = get_next_part(part, &filename);
+//   while (true) {
+    
+//     if (status == 0) {
+//       break;
+//     }
+//     if (status == -1) {
+//       return NULL;
+//     }
+//     struct inode* inode;
+//     status = get_next_part(part, &filename);
+//     bool found = dir_lookup(curr_dir, part, &inode);
+//     if (!found) {
+//       if (status == 0 && !last_should_exist) {
+//         struct inode* help = curr_dir->inode;
+//         close(curr_dir);
+//         return help;
+//       }
+//       return NULL;
+//     }
+    
+//     bool is_dir = get_id(inode)->is_dir;
+//     dir_close(curr_dir);
+//     if (status == 0) {
+//       return inode;
+//     }
+//     if (is_dir) {
+//       curr_dir = dir_open(inode);
+//     }
+//   }
+//   dir_close(curr_dir);
+//   return NULL;
+
+// }
+
+// char* get_full_path(dir* dir) {
+//   // if dir is the root:
+//     // return ''
+  
+//   if (dir->inode->sector == ROOT_DIR_SECTOR) {
+//     return strdup("/");
+//   }
+//   char* path = get_full_path(dir->parent);
+//   char* fullpath = malloc(strlen(path) + strlen(name) + 2);
+//   snprintf(fullpath, "%s/%s", path, name);
+//   return fullpath;
+//   // return strdup(get_full_path(dir->parent) + "/" + name);
+// }
+
+
+// struct inode* path_resolution(const char* filename) {
+//   struct dir* curr_dir;
+//   if (filename[0] != '/') {
+//     curr_dir = 
+//   }
+//   char* full_path = filename;
+//   // if filename begins with "./":
+//   //   full_path = get_full_path(cwd) + filename[2:]
+//   // else if filename begins with "../":
+//   //   full_path = get_full_path(cwd->parent) + filename[3:]
+//   // else if filename does not begin with "/": // this is not an absolute path
+//   //   full_path = get_full_path(cwd) + filename
+//   if (filename[0] != '/') {
+//     full_path = 
+//   }
+  
+//   struct dir* dir = dir_open_root()
+//   struct inode* inode = NULL
+//   if (dir == NULL) return NULL
+//   char part[NAME_MAX + 1]
+//   get_next_part(part, &full_path)
+//   while true:
+//     if (!dir_lookup(dir, part, &inode)):
+//       return NULL
+//     dir_close(dir)
+//     success = get_next_part(part, &full_path)
+//     if success == 0: //at the end of path
+//       break
+//     dir = dir_open(inode)
+//   return inode
+// }
 
 /* Returns the block device sector that contains byte offset POS
    within INODE.
@@ -188,7 +333,24 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     //   }
     // // } else if (size > (10 + 128 + i * 128 * 128) * BLOCK_SECTOR_SIZE) {
     // } else 
-    
+    if (size <= (10 + 128 + (i + 1) * 128) * BLOCK_SECTOR_SIZE && dbl_buffer[i] != 0) {
+      // shrink (do not need the whole double block)
+       block_sector_t sgl_buffer[128];
+      memset(sgl_buffer, 0, 512);
+      block_read(fs_device, dbl_buffer[i], sgl_buffer);
+      for (int j = 0; j < 128; j++) {
+        if (size <= (10 + 128 + i * 128 + j) * BLOCK_SECTOR_SIZE && sgl_buffer[j] != 0) {
+          free_map_release(sgl_buffer[j], 1);
+          sgl_buffer[j] = 0;
+        }
+      }
+      if (size <= (10 + 128 + i * 128)) { // did not need block at all
+        free_map_release(dbl_buffer[i], 1);
+        dbl_buffer[i] = 0;
+      } else {
+        block_write(fs_device, dbl_buffer[i], sgl_buffer);
+      }
+    }
     
     if (size > (10 + 128 + i * 128) * BLOCK_SECTOR_SIZE) {
       // grow, kinda sus check
