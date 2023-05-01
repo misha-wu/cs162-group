@@ -345,7 +345,7 @@ void inode_close(struct inode* inode) {
       block_read(fs_device, inode->sector, id);
       inode_resize(id, 0);
       id->length = 0;
-      free_map_release(inode->sector, 1);
+      // free_map_release(inode->sector, 1);
       // free_map_release(inode->data.start, bytes_to_sectors(inode->data.length));
     }
 
@@ -424,16 +424,17 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
 
   off_t inode_len = inode_length(inode);
 
-  // if (size + offset > inode_len) {
+  struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
+  if (id == NULL) {
+    return 0;
+  }
 
-  //   struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
-  //   if (id == NULL) {
-  //     return 0;
-  //   }
-  //   block_read(fs_device, inode->sector, id);
-
-  //   inode_resize(id, size + offset - inode_len);
-  // }
+  if (size + offset > inode_len) {  
+    block_read(fs_device, inode->sector, id);
+    inode_resize(id, size + offset);
+    inode_len = size + offset;
+    id->length = size + offset;
+  }
 
   while (size > 0) {
     /* Sector to write, starting byte offset within sector. */
@@ -441,7 +442,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
     /* Bytes left in inode, bytes left in sector, lesser of the two. */
-    off_t inode_left = inode_length(inode) - offset;
+    off_t inode_left = inode_len - offset;
+    // off_t inode_left = inode_length(inode) - offset;
     int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
     int min_left = inode_left < sector_left ? inode_left : sector_left;
 
@@ -478,6 +480,10 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     bytes_written += chunk_size;
   }
   free(bounce);
+
+  if (size + offset > inode_len) {
+    block_write(fs_device, inode->sector, id);
+  }
 
   return bytes_written;
 }
