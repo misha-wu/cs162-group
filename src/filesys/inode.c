@@ -50,14 +50,19 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
     return -1;
   }
 
+  block_sector_t ret;
   block_read(fs_device, inode->sector, disk_inode);
   if (pos < 10 * BLOCK_SECTOR_SIZE) {
-    return disk_inode->direct[pos / BLOCK_SECTOR_SIZE];
+    ret = disk_inode->direct[pos / BLOCK_SECTOR_SIZE];
+    free(disk_inode);
+    return ret;
   } else if (pos < 10 * BLOCK_SECTOR_SIZE + 128 * BLOCK_SECTOR_SIZE) {
     block_sector_t buffer[128];
     block_read(fs_device, disk_inode->indirect, buffer);
     off_t relative_pos = pos - 10 * BLOCK_SECTOR_SIZE;
-    return buffer[relative_pos / BLOCK_SECTOR_SIZE];
+    ret = buffer[relative_pos / BLOCK_SECTOR_SIZE];
+    free(disk_inode);
+    return ret;
   } else {
 
     // uhhh this math is kinda sus
@@ -70,7 +75,9 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
     off_t index_in_doubly = relative_pos / (num_pointers * BLOCK_SECTOR_SIZE);
     block_read(fs_device, buffer[index_in_doubly], buffer);
     off_t rel_rel_pos = pos - 10 * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE - index_in_doubly * num_pointers * BLOCK_SECTOR_SIZE;
-    return buffer[rel_rel_pos / BLOCK_SECTOR_SIZE];
+    ret = buffer[rel_rel_pos / BLOCK_SECTOR_SIZE];
+    free(disk_inode);
+    return ret;
   }
 
 
@@ -277,6 +284,7 @@ bool inode_create(block_sector_t sector, off_t length) {
       success = true;
     }
     block_write(fs_device, sector, disk_inode);
+    free(id);
     free(disk_inode);
   }
   return success;
@@ -345,6 +353,7 @@ void inode_close(struct inode* inode) {
       block_read(fs_device, inode->sector, id);
       inode_resize(id, 0);
       id->length = 0;
+      free(id);
       // free_map_release(inode->sector, 1);
       // free_map_release(inode->data.start, bytes_to_sectors(inode->data.length));
     }
@@ -377,6 +386,8 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
     off_t inode_left = inode_length(inode) - offset;
     int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
     int min_left = inode_left < sector_left ? inode_left : sector_left;
+
+    // printf("offset %d is at sector %d, has inode left %d, sector left %d\n", offset, sector_idx, inode_left, sector_left);
 
     /* Number of bytes to actually copy out of this sector. */
     int chunk_size = size < min_left ? size : min_left;
@@ -429,7 +440,7 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     return 0;
   }
 
-  if (size + offset > inode_len) {  
+  if (size + offset >= inode_len) {  
     block_read(fs_device, inode->sector, id);
     inode_resize(id, size + offset);
     inode_len = size + offset;
@@ -486,6 +497,8 @@ off_t inode_write_at(struct inode* inode, const void* buffer_, off_t size, off_t
     block_write(fs_device, inode->sector, id);
   }
 
+  free(id);
+
   return bytes_written;
 }
 
@@ -513,7 +526,9 @@ off_t inode_length(const struct inode* inode) {
     return -1; // ???
   }
   block_read(fs_device, inode->sector, id);
-  return id->length;
+  int length = id->length;
+  free(id);
+  return length;
 }
 
 
