@@ -2,43 +2,6 @@
 #define USERPROG_SYSCALL_H
 #include "lib/stdbool.h"
 #include <stdint.h>
-#include "threads/synch.h"
-
-// slightly sus 0.0
-typedef char lock_t;
-typedef char sema_t;
-
-typedef struct WO_DE_LOCK {
-  struct lock kernel_lock; //kernel version
-  lock_t user_lock; //user lock
-  struct list_elem lock_elem;
-
-  // struct lock mutex_lock;
-} WO_DE_LOCK_t;
-
-typedef struct WO_DE_SEMA {
-  struct semaphore kernel_sema; //kernel version
-  sema_t user_sema; //user lock
-  int value;
-  struct list_elem sema_elem;
-  // struct lock mutex_lock;
-} WO_DE_SEMA_t;
-
-// typedef struct WO_DE_LOCK {
-//   struct lock kernel_lock; //kernel version
-//   struct lock user_lock; //user lock
-//   struct list_elem lock_elem;
-
-//   struct lock mutex_lock;
-// } WO_DE_LOCK_t;
-
-// typedef struct WO_DE_SEMA {
-//   struct semaphore kernel_sema; //kernel version
-//   struct semaphore user_sema; //user lock
-//   int value;
-//   struct list_elem sema_elem;
-//   struct lock mutex_lock;
-// } WO_DE_SEMA_t;
 
 void syscall_init(void);
 
