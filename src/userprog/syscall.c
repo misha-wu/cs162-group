@@ -384,6 +384,7 @@ bool mkdir(const char* dir) {
   // struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
   // get_last_part(last_part, &dir);
   struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
+  dir_close(cwd);
   // free(diced);
   if (directory == NULL) {
     return false;
@@ -393,7 +394,8 @@ bool mkdir(const char* dir) {
   if (!free_map_allocate(1, &sector)) {
     return false;
   }
-  dir_create(sector, 16);
+  // dir_create(sector, 16);
+  wo_de_dir_create(sector, 16);
   // printf("3\n");
   // // struct dir* directory = dir_open(inode);
   // printf("4\n");
@@ -404,10 +406,12 @@ bool mkdir(const char* dir) {
   // }
   // printf("5\n");
   if (!dir_add(directory, last_part, sector)) {
+    dir_close(directory);
     printf("dir add failed :(\n");
     return false;
   }
-  get_cwd();
+  dir_close(directory);
+  // get_cwd();
   // printf("i hate this\n");
   return true;
 }
@@ -424,25 +428,17 @@ bool chdir(const char* dir) {
 
   struct inode* inode = NULL;
   struct dir* cwd = get_cwd();
-  // bool found = dir_lookup(cwd, "asldjfksajklfajslkfj", &inode);
   char* scuffed = malloc(strlen(dir) + 3);
   snprintf(scuffed, strlen(scuffed), "%s/x", dir);
   char last_part[NAME_MAX + 1];
-  // printf("chdir pre wo de dir\n");
+
   struct dir* directory = get_wo_de_dir(last_part, scuffed, cwd);
-  // free(scuffed);
-  // printf("pre directory being null maybe\n");
+  dir_close(cwd);
   if (directory == NULL) {
     return false;
   }
-  // printf("watched me watch the front door\n");
+  dir_close(process_current()->cwd);
   process_current()->cwd = dir_reopen(directory);
-  // lookup(process_current()->cwd, "b", NULL, NULL);
-  // lookup(dir_open_root(), "b", NULL, NULL);
-  // struct inode* inode = NULL;
-  // dir_lookup(process_current()->cwd, "only half a blue sky", &inode);
-  // dir_lookup(dir_open_root(), "only half a blue sky", &inode);
-  // dir_lookup(directory, "only half a blue sky", &inode);
   return true;
 
 }

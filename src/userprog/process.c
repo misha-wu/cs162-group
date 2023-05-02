@@ -88,7 +88,7 @@ pid_t process_execute(const char* file_name) {
   arg -> file_name = fn_copy;
   arg -> child_status = child_status;
   struct thread* t = thread_current();
-  arg -> cwd = t->pcb->cwd;
+  arg -> cwd = dir_reopen(t->pcb->cwd);
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, arg);
