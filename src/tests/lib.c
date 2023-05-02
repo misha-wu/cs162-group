@@ -160,9 +160,6 @@ void check_file_handle(int fd, const char* file_name, const void* buf_, size_t s
 
     ret_val = read(fd, block, block_size);
     if (ret_val != block_size)
-    
-      // printf("read of %zu bytes at offset %zu in \"%s\" returned %zu\n", block_size, ofs, file_name,
-          //  ret_val);
       fail("read of %zu bytes at offset %zu in \"%s\" returned %zu", block_size, ofs, file_name,
            ret_val);
 
