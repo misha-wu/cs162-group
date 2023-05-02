@@ -57,6 +57,11 @@ bool get_is_dir(struct inode* inode) {
   return is_dir;
 }
 
+block_sector_t get_sector(struct inode* inode) {
+  
+  return inode->sector;
+}
+
 // /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
 //    next call will return the next file name part. Returns 1 if successful, 0 at
 //    end of string, -1 for a too-long file name part. */
@@ -445,6 +450,36 @@ bool inode_create(block_sector_t sector, off_t length) {
       disk_inode->length = length;
       success = true;
     }
+    block_write(fs_device, sector, disk_inode);
+    free(id);
+    free(disk_inode);
+  }
+  return success;
+}
+
+bool inode_create_dir(block_sector_t sector, off_t length) {
+  struct inode_disk* disk_inode = NULL;
+  bool success = false;
+
+  ASSERT(length >= 0);
+
+  /* If this assertion fails, the inode structure is not exactly
+     one sector in size, and you should fix that. */
+  //    printf("lock size %d\n", sizeof(struct lock));
+  // printf("\ndisk inode size %d\n", sizeof *disk_inode);
+  ASSERT(sizeof *disk_inode == BLOCK_SECTOR_SIZE);
+
+  disk_inode = calloc(1, sizeof *disk_inode);
+  if (disk_inode != NULL) {
+    struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
+    if (id == NULL) {
+      return false;
+    }
+    if (inode_resize(disk_inode, length)) {
+      disk_inode->length = length;
+      success = true;
+    }
+    disk_inode->is_dir = true;
     block_write(fs_device, sector, disk_inode);
     free(id);
     free(disk_inode);

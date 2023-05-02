@@ -47,6 +47,39 @@ bool filesys_create(const char* name, off_t initial_size) {
 
   return success;
 }
+// bool filesys_create(const char* name, off_t initial_size) {
+//   block_sector_t inode_sector = 0;
+//   // struct dir* dir = dir_open_root();
+//   struct dir* cwd = get_cwd();
+//   struct dir* dir = get_wo_de_dir(name, cwd);
+//   printf("creating file so\n");
+//   bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
+//                   inode_create(inode_sector, initial_size) && dir_add(dir, name, inode_sector));
+//   if (!success && inode_sector != 0)
+//     free_map_release(inode_sector, 1);
+//   dir_close(dir);
+
+//   return success;
+// }
+
+bool filesys_create_in_dir(const char* name, off_t initial_size, struct dir* cwd) {
+  block_sector_t inode_sector = 0;
+  // struct dir* dir = dir_open_root();
+  // struct dir* cwd = get_cwd();
+  char last_part[NAME_MAX + 1];
+  char* diced = dice_and_slice(name);
+  struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
+  get_last_part(last_part, &name);
+  free(diced);
+  printf("creating file so\n");
+  bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
+                  inode_create(inode_sector, initial_size) && dir_add(dir, last_part, inode_sector));
+  if (!success && inode_sector != 0)
+    free_map_release(inode_sector, 1);
+  dir_close(dir);
+
+  return success;
+}
 
 /* Opens the file with the given NAME.
    Returns the new file if successful or a null pointer
@@ -55,10 +88,38 @@ bool filesys_create(const char* name, off_t initial_size) {
    or if an internal memory allocation fails. */
 struct file* filesys_open(const char* name) {
   struct dir* dir = dir_open_root();
+  // struct dir* cwd = get_cwd();
+  // struct dir* dir = get_wo_de_dir(name, cwd);
+  // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
 
   if (dir != NULL)
     dir_lookup(dir, name, &inode);
+  dir_close(dir);
+
+  return file_open(inode);
+}
+
+struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
+  // struct dir* dir = dir_open_root();
+  // struct dir* cwd = get_cwd();
+  // struct dir* dir = get_wo_de_dir(name, cwd);
+  char last_part[NAME_MAX + 1];
+  // struct inode* inode = NULL;
+  // dir_lookup(cwd, "only half a blue sky", &inode);
+
+  // PANIC("half a man");
+
+  char* diced = dice_and_slice(name);
+  struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
+  get_last_part(last_part, &name);
+  free(diced);
+  printf("wo de dir %x, inode %x\n", dir, get_dir_inode(dir));
+  // get_wo_de_dir(name, cwd);
+  struct inode* inode = NULL;
+
+  if (dir != NULL)
+    dir_lookup(dir, last_part, &inode);
   dir_close(dir);
 
   return file_open(inode);

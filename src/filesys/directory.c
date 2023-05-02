@@ -25,8 +25,15 @@ struct dir_entry {
 
 /* Creates a directory with space for ENTRY_CNT entries in the
    given SECTOR.  Returns true if successful, false on failure. */
+// bool dir_create(block_sector_t sector, size_t entry_cnt) {
+//   return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+// }
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
+  return inode_create_dir(sector, entry_cnt * sizeof(struct dir_entry));
+}
+
+struct inode* get_dir_inode(struct dir* dir) {
+  return dir->inode;
 }
 
 // bool dir_create_2(block_sector_t sector, size_t entry_cnt, struct dir* parent) {
@@ -63,11 +70,153 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
   return 1;
 }
 
+static char* dice_and_slice(char* old_path) {
+  char* path = malloc(strnlen(old_path));
+  strlcpy(path, old_path, strnlen(old_path));
+  for (int i = strlen(path) - 1; i >= 0; i--) {
+    if (path[i] == '/') {
+      while (i >= 0 && path[i] == '/') {
+        path[i] = 0;
+        i--;
+      }
+      break;
+    }
+  }
+}
+
 static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
   int status;
   while (status = get_next_part(part, srcp) == 1);
   return status;
 }
+
+struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct dir* cwd) {
+  printf("get wo de dir filename %s\n", filename);
+  struct dir* curr_dir;
+  if (filename[0] == '/') {
+    curr_dir = dir_open_root();
+  } else {
+    curr_dir = dir_reopen(cwd);
+  }
+  if (curr_dir == NULL) {
+    return NULL;
+  }
+  // char part[NAME_MAX + 1];
+  bool was_file;
+  int status = get_next_part(part, &filename);
+  struct dir* last;
+  struct dir* sec_last;
+  while (true) {
+    if (status == 0) {
+      break;
+    } else if (status == -1) {
+      return NULL;
+    }
+    printf("part %s\n", part);
+    struct inode* inode;
+    bool found = dir_lookup(curr_dir, part, &inode);
+    // printf("inode at sector %d", get_sector(inode));
+    status = get_next_part(part, &filename);
+    printf("status is %d and found %d\n", status, found);
+    if (!found) {
+      if (status == 0) {
+        // printf("inside the if\n");
+        // struct inode* help = curr_dir->inode;
+        // close(curr_dir);
+        // issues: ref counting
+        return curr_dir;
+      }
+      return NULL;
+    }
+    printf("inode at sector %d", get_sector(inode));
+    
+    bool is_dir = get_is_dir(inode);
+    if (!is_dir) {
+      printf("panicked at the disco when part was %s\n", part);
+      return NULL;
+      // PANIC("panic at the disco");
+    }
+    // PANIC("is dir %d", is_dir);
+    // dir_close(curr_dir);
+    // if (status == 0) {
+    //   return inode;
+    // }
+    // curr_dir = dir_open(inode);
+    // if (is_dir) {
+
+    dir_close(curr_dir);
+    curr_dir = dir_open(inode);
+    printf("curr dir or smth, inode %x\n", inode);
+      // return NULL;
+    // }
+  }
+  dir_close(curr_dir);
+  return NULL;
+}
+
+// struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct dir* cwd) {
+//   printf("get wo de dir filename %s\n", filename);
+//   struct dir* curr_dir;
+//   if (filename[0] == '/') {
+//     curr_dir = dir_open_root();
+//   } else {
+//     curr_dir = dir_reopen(cwd);
+//   }
+//   if (curr_dir == NULL) {
+//     return NULL;
+//   }
+//   // char part[NAME_MAX + 1];
+//   bool was_file;
+//   int status = get_next_part(part, &filename);
+//   struct dir* last;
+//   struct dir* sec_last;
+//   while (true) {
+//     if (status == 0) {
+//       break;
+//     } else if (status == -1) {
+//       return NULL;
+//     }
+//     printf("part %s\n", part);
+//     struct inode* inode;
+//     bool found = dir_lookup(curr_dir, part, &inode);
+//     // printf("inode at sector %d", get_sector(inode));
+//     status = get_next_part(part, &filename);
+//     printf("status is %d and found %d\n", status, found);
+//     if (!found) {
+//       if (status == 0) {
+//         // printf("inside the if\n");
+//         // struct inode* help = curr_dir->inode;
+//         // close(curr_dir);
+//         // issues: ref counting
+//         return curr_dir;
+//       }
+//       return NULL;
+//     }
+//     printf("inode at sector %d", get_sector(inode));
+    
+//     bool is_dir = get_is_dir(inode);
+//     if (!is_dir) {
+//       printf("panicked at the disco when part was %s\n", part);
+//       return NULL;
+//       // PANIC("panic at the disco");
+//     }
+//     // PANIC("is dir %d", is_dir);
+//     // dir_close(curr_dir);
+//     // if (status == 0) {
+//     //   return inode;
+//     // }
+//     // curr_dir = dir_open(inode);
+//     // if (is_dir) {
+
+//     dir_close(curr_dir);
+//     curr_dir = dir_open(inode);
+//     printf("curr dir or smth, inode %x\n", inode);
+//       // return NULL;
+//     // }
+//   }
+//   dir_close(curr_dir);
+//   return NULL;
+// }
 
 struct inode* path_resolution_funsies(const char* filename, struct dir* cwd, bool last_should_exist) {
   printf("asldfjkalskdfjalskdfjalds\n");
@@ -77,7 +226,7 @@ struct inode* path_resolution_funsies(const char* filename, struct dir* cwd, boo
     printf("wgat\n");
     curr_dir = dir_open_root();
   } else {
-    printf("should use cwd\n");
+    printf("should use cwd, inode is %x\n", get_dir_inode(cwd));
     curr_dir = dir_reopen(cwd);
   }
   if (curr_dir == NULL) {
@@ -96,12 +245,15 @@ struct inode* path_resolution_funsies(const char* filename, struct dir* cwd, boo
     }
     printf("part %s\n", part);
     struct inode* inode;
-    status = get_next_part(part, &filename);
     bool found = dir_lookup(curr_dir, part, &inode);
+    status = get_next_part(part, &filename);
+    printf("status is %d and found %d\n", status, found);
     if (!found) {
       if (status == 0 && !last_should_exist) {
+        printf("inside the if\n");
         struct inode* help = curr_dir->inode;
-        close(curr_dir);
+        // close(curr_dir);
+        // issues: ref counting
         return help;
       }
       return NULL;
@@ -173,7 +325,8 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
   ASSERT(dir != NULL);
   ASSERT(name != NULL);
 
-  for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e)
+  for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
+    printf("looking up %s, actual name %s\n", name, e.name);
     if (e.in_use && !strcmp(name, e.name)) {
       if (ep != NULL)
         *ep = e;
@@ -181,6 +334,7 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
         *ofsp = ofs;
       return true;
     }
+  }
   return false;
 }
 
@@ -240,6 +394,9 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   strlcpy(e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
+
+  printf("have supposedly added this to the directory\n");
+  lookup(dir, name, NULL, NULL);
 
 done:
   return success;
