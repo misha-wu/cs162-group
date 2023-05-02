@@ -71,27 +71,27 @@ static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
 }
 
 static char* dice_and_slice(char* old_path) {
-  char* path = malloc(strnlen(old_path));
-  strlcpy(path, old_path, strnlen(old_path));
-  for (int i = strlen(path) - 1; i >= 0; i--) {
-    if (path[i] == '/') {
-      while (i >= 0 && path[i] == '/') {
-        path[i] = 0;
-        i--;
-      }
-      break;
-    }
-  }
+  // char* path = malloc(strnlen(old_path));
+  // strlcpy(path, old_path, strnlen(old_path));
+  // for (int i = strlen(path) - 1; i >= 0; i--) {
+  //   if (path[i] == '/') {
+  //     while (i >= 0 && path[i] == '/') {
+  //       path[i] = 0;
+  //       i--;
+  //     }
+  //     break;
+  //   }
+  // }
 }
 
-static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
-  int status;
-  while (status = get_next_part(part, srcp) == 1);
-  return status;
-}
+// static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
+//   int status;
+//   while (status = get_next_part(part, srcp) == 1);
+//   return status;
+// }
 
 struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct dir* cwd) {
-  printf("get wo de dir filename %s\n", filename);
+  // printf("get wo de dir filename %s\n", filename);
   struct dir* curr_dir;
   if (filename[0] == '/') {
     curr_dir = dir_open_root();
@@ -112,23 +112,29 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
     } else if (status == -1) {
       return NULL;
     }
-    printf("part %s\n", part);
+    // printf("part %s\n", part);
     struct inode* inode;
     bool found = dir_lookup(curr_dir, part, &inode);
     // printf("inode at sector %d", get_sector(inode));
     status = get_next_part(part, &filename);
-    printf("status is %d and found %d\n", status, found);
+    // printf("status is %d and found %d\n", status, found);
+    // if (!found) {
+    //   if (status == 0) {
+    //     // printf("inside the if\n");
+    //     // struct inode* help = curr_dir->inode;
+    //     // close(curr_dir);
+    //     // issues: ref counting
+    //     return curr_dir;
+    //   }
+    //   return NULL;
+    // }
+    if (status == 0) {
+      return curr_dir;
+    }
     if (!found) {
-      if (status == 0) {
-        // printf("inside the if\n");
-        // struct inode* help = curr_dir->inode;
-        // close(curr_dir);
-        // issues: ref counting
-        return curr_dir;
-      }
       return NULL;
     }
-    printf("inode at sector %d", get_sector(inode));
+    // printf("inode at sector %d", get_sector(inode));
     
     bool is_dir = get_is_dir(inode);
     if (!is_dir) {
@@ -146,7 +152,7 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
 
     dir_close(curr_dir);
     curr_dir = dir_open(inode);
-    printf("curr dir or smth, inode %x\n", inode);
+    // printf("curr dir or smth, inode %x\n", inode);
       // return NULL;
     // }
   }
@@ -326,7 +332,7 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
   ASSERT(name != NULL);
 
   for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
-    printf("looking up %s, actual name %s\n", name, e.name);
+    // printf("looking up %s, actual name %s\n", name, e.name);
     if (e.in_use && !strcmp(name, e.name)) {
       if (ep != NULL)
         *ep = e;
@@ -395,7 +401,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
   e.inode_sector = inode_sector;
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
 
-  printf("have supposedly added this to the directory\n");
+  // printf("have supposedly added this to the directory\n");
   lookup(dir, name, NULL, NULL);
 
 done:
