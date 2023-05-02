@@ -47,6 +47,11 @@ void userprog_init(void) {
   list_init(&(t->pcb->children));
 }
 
+void userprog_file_init(void) {
+  struct thread* t = thread_current();
+  t->pcb->cwd = dir_open_root();
+}
+
 /* Starts a new thread running a user program loaded from
    FILENAME.  The new thread may be scheduled (and may even exit)
    before process_execute() returns.  Returns the new process's
@@ -82,6 +87,8 @@ pid_t process_execute(const char* file_name) {
   }
   arg -> file_name = fn_copy;
   arg -> child_status = child_status;
+  struct thread* t = thread_current();
+  arg -> cwd = t->pcb->cwd;
 
   /* Create a new thread to execute FILE_NAME. */
   tid = thread_create(file_name, PRI_DEFAULT, start_process, arg);
@@ -109,6 +116,7 @@ static void start_process(void* sp_arg) {
   struct start_process_arg* arg = (struct start_process_arg*) sp_arg;
   char* file_name = arg->file_name;
   struct process_status* p_status = arg->child_status;
+  struct dir* cwd = arg->cwd;
   struct thread* t = thread_current();
   struct intr_frame if_;
   bool success, pcb_success;
@@ -137,6 +145,9 @@ static void start_process(void* sp_arg) {
     new_pcb->fd_table[0] = NULL;
     new_pcb->fd_table[1] = NULL;
     new_pcb->fd_table[2] = NULL;
+    
+    new_pcb->cwd = dir_reopen(cwd);
+    // printf("i set a cwd, with inode %x\n", get_dir_inode(new_pcb->cwd));
   
   }
 

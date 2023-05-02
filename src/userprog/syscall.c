@@ -11,11 +11,34 @@
 #include "threads/vaddr.h"
 
 #include "lib/string.h"
+#include "filesys/directory.h"
+#include "filesys/inode.h"
 
 // global file system lock
 struct lock global_file_lock;
 
 static void syscall_handler(struct intr_frame*);
+
+
+
+// char* dice_and_slice(char* old_path) {
+//   char* path = strdup(old_path);
+//   for (int i = strlen(path) - 1; i >= 0; i--) {
+//     if (path[i] == '/') {
+//       while (i >= 0 && path[i] == '/') {
+//         path[i] = 0;
+//         i--;
+//       }
+//       break;
+//     }
+//   }
+// }
+
+// int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
+//   int status;
+//   while (status = get_next_part(part, srcp) == 1);
+//   return status;
+// }
 
 void syscall_init(void) { 
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); 
@@ -26,6 +49,10 @@ void syscall_init(void) {
 struct process* process_current(void) {
   struct thread* t = thread_current();
   return t->pcb;
+}
+
+struct dir* get_cwd() {
+  return dir_reopen(process_current()->cwd);
 }
 
 // checks file descriptor is valid
@@ -63,12 +90,13 @@ int exit(int status) {
 
 // create syscall
 int create(char* filename, unsigned initial_size) {
+  //  get_wo_de_dir(filename, get_cwd());
   lock_acquire(&global_file_lock);
   if (filename == NULL) {
     lock_release(&global_file_lock);
     exit(-1);
   // check conditions and try to create, which will return false if failed 
-  } else if (strlen(filename) > 256 || !filesys_create(filename, initial_size)) {
+  } else if (strlen(filename) > 256 || !filesys_create_in_dir(filename, initial_size, get_cwd())) {
     lock_release(&global_file_lock);
     return 0;
   } else {
@@ -85,7 +113,9 @@ int open (char *name) {
     lock_release(&global_file_lock);
     return -1;
   }
-  struct file* file = filesys_open(name);
+  // printf("in open\n");
+  struct file* file = filesys_open_in_dir(name, get_cwd());
+  // printf("file is %x\n", file);
   
   if (file == NULL) {
     lock_release(&global_file_lock);
@@ -243,6 +273,180 @@ double compute_e (int n) {
   return sys_sum_to_e(n);
 }
 
+
+// /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
+//    next call will return the next file name part. Returns 1 if successful, 0 at
+//    end of string, -1 for a too-long file name part. */
+// static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
+//   const char* src = *srcp;
+//   char* dst = part;
+
+//   /* Skip leading slashes.  If it's all slashes, we're done. */
+//   while (*src == '/')
+//     src++;
+//   if (*src == '\0')
+//     return 0;
+
+//   /* Copy up to NAME_MAX character from SRC to DST.  Add null terminator. */
+//   while (*src != '/' && *src != '\0') {
+//     if (dst < part + NAME_MAX)
+//       *dst++ = *src;
+//     else
+//       return -1;
+//     src++;
+//   }
+//   *dst = '\0';
+
+//   /* Advance source pointer. */
+//   *srcp = src;
+//   return 1;
+// }
+
+// static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
+//   int status;
+//   while (status = get_next_part(part, srcp) == 1);
+//   return status;
+// }
+
+// struct fd_entry* path_resolution_not_funsies(const char* filename, struct dir* cwd, bool last_should_exist) {
+//   printf("asldfjkalskdfjalskdfjalds");
+//   struct dir* curr_dir;
+//   if (filename[0] != '/') {
+//     printf("wgat");
+//     curr_dir = dir_open_root();
+//   } else {
+//     printf("should use cwd\n");
+//     curr_dir = dir_reopen(cwd);
+//   }
+//   if (curr_dir == NULL) {
+//     return NULL;
+//   }
+//   char part[NAME_MAX + 1];
+//   bool was_file;
+//   int status = get_next_part(part, &filename);
+//   while (true) {
+    
+//     if (status == 0) {
+//       break;
+//     }
+//     if (status == -1) {
+//       return NULL;
+//     }
+//     struct inode* inode;
+//     status = get_next_part(part, &filename);
+//     bool found = dir_lookup(curr_dir, part, &inode);
+//     if (!found) {
+//       if (status == 0 && !last_should_exist) {
+//         struct fd_entry* fde = calloc(1, sizeof(struct fd_entry));
+//         fde->is_dir = true;
+//         fde->file = NULL;
+//         fde->dir = curr_dir;
+//         // // struct inode* help = curr_dir->inode;
+//         // close(curr_dir);
+//         // return help;
+//       }
+//       return NULL;
+//     }
+    
+//     bool is_dir = get_is_dir(inode);
+//     dir_close(curr_dir);
+//     if (status == 0) {
+//       return inode;
+//     }
+//     if (is_dir) {
+//       curr_dir = dir_open(inode);
+//     }
+//   }
+//   dir_close(curr_dir);
+//   return NULL;
+
+// }
+
+
+bool mkdir(const char* dir) {
+  // printf("lskfjlakjsdflja\n");
+  struct dir* cwd = get_cwd();
+  // printf("in mkdir my cwd has inode %x", get_dir_inode(cwd));
+  // // printf("cwd????\n");
+  // // printf("dir is %x\n", dir);
+  // // printf("dir[0] is %c\n", dir[0]);
+  // // path_resolution_funsies(dir, cwd, true);
+  // if (path_resolution_funsies(dir, cwd, true) != NULL) {
+  //   return false;
+  // }
+  // printf("1\n");
+  // struct inode* inode = path_resolution_funsies(dir, cwd, false);
+  // if (inode == NULL) {
+  //   return false;
+  // }
+  char last_part[NAME_MAX + 1];
+  // char* diced = dice_and_slice(dir);
+  // struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
+  // get_last_part(last_part, &dir);
+  struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
+  // free(diced);
+  if (directory == NULL) {
+    return false;
+  }
+  // printf("2\n");
+  block_sector_t sector;
+  if (!free_map_allocate(1, &sector)) {
+    return false;
+  }
+  dir_create(sector, 16);
+  // printf("3\n");
+  // // struct dir* directory = dir_open(inode);
+  // printf("4\n");
+  // char last_part[NAME_MAX + 1];
+  // int status = get_last_part(last_part, &dir);
+  // if (status == -1) {
+  //   return false;
+  // }
+  // printf("5\n");
+  if (!dir_add(directory, last_part, sector)) {
+    printf("dir add failed :(\n");
+    return false;
+  }
+  get_cwd();
+  // printf("i hate this\n");
+  return true;
+}
+
+bool chdir(const char* dir) {
+  // // struct inode* inode = NULL;
+  // bool found = dir_lookup(dir_open_root(), "a", &inode);
+  // printf("found a");
+  // struct dir* a = dir_open(inode);
+  // found = dir_lookup(a, "b", &inode);
+  // printf("found b");
+
+
+
+  struct inode* inode = NULL;
+  struct dir* cwd = get_cwd();
+  // bool found = dir_lookup(cwd, "asldjfksajklfajslkfj", &inode);
+  char* scuffed = malloc(strlen(dir) + 3);
+  snprintf(scuffed, strlen(scuffed), "%s/x", dir);
+  char last_part[NAME_MAX + 1];
+  // printf("chdir pre wo de dir\n");
+  struct dir* directory = get_wo_de_dir(last_part, scuffed, cwd);
+  // free(scuffed);
+  // printf("pre directory being null maybe\n");
+  if (directory == NULL) {
+    return false;
+  }
+  // printf("watched me watch the front door\n");
+  process_current()->cwd = dir_reopen(directory);
+  // lookup(process_current()->cwd, "b", NULL, NULL);
+  // lookup(dir_open_root(), "b", NULL, NULL);
+  // struct inode* inode = NULL;
+  // dir_lookup(process_current()->cwd, "only half a blue sky", &inode);
+  // dir_lookup(dir_open_root(), "only half a blue sky", &inode);
+  // dir_lookup(directory, "only half a blue sky", &inode);
+  return true;
+
+}
+
 /*
 call helper, which does argument checking.
 */
@@ -303,5 +507,11 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = write(fd, buffer, size);
   } else if (args[0] == SYS_COMPUTE_E) {
     f->eax = compute_e(args[1]);
+  } else if (args[0] == SYS_MKDIR) {
+    // printf("i hate everything\n");
+    f->eax = mkdir(args[1]);
+  } else if (args[0] == SYS_CHDIR) {
+    // printf("henln\n");
+    f->eax = chdir(args[1]);
   }
 }
