@@ -28,8 +28,35 @@ struct dir_entry {
 // bool dir_create(block_sector_t sector, size_t entry_cnt) {
 //   return inode_create(sector, entry_cnt * sizeof(struct dir_entry));
 // }
+
+
+bool wo_de_dir_create(block_sector_t sector, size_t entry_cnt, struct dir* parent) {
+  if (!inode_create_dir(sector, entry_cnt * sizeof(struct dir_entry))) {
+    return false;
+  }
+  struct inode* inode = inode_open(sector);
+  struct dir* my_dir = dir_open(inode);
+  if (!dir_add(my_dir, ".", sector)) {
+    dir_close(my_dir);
+    inode_close(inode);
+    return false;
+  }
+  if (!dir_add(my_dir, "..", inode_get_inumber(parent->inode))) {
+    dir_close(my_dir);
+    inode_close(inode);
+    return false;
+  }
+  dir_close(my_dir);
+  inode_close(inode);
+  return true;
+}
+
 bool dir_create(block_sector_t sector, size_t entry_cnt) {
-  return inode_create_dir(sector, entry_cnt * sizeof(struct dir_entry));
+  // return inode_create_dir(sector, entry_cnt * sizeof(struct dir_entry));
+  struct dir* dir = dir_open_root();
+  bool success = wo_de_dir_create(sector, entry_cnt, dir);
+  dir_close(dir);
+  return success;
 }
 
 struct inode* get_dir_inode(struct dir* dir) {
@@ -139,6 +166,7 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
     bool is_dir = get_is_dir(inode);
     if (!is_dir) {
       printf("panicked at the disco when part was %s\n", part);
+      dir_close(curr_dir);
       return NULL;
       // PANIC("panic at the disco");
     }
