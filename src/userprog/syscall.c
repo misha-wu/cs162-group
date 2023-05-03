@@ -491,9 +491,30 @@ bool chdir(const char* dir) {
     return false;
   }
   dir_close(process_current()->cwd);
-  process_current()->cwd = dir_reopen(directory);
+  process_current()->cwd = directory;
   return true;
 
+}
+
+bool readdir(int fd, char* name) {
+  // printf("hi\n");
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return false;
+  }
+  struct process* p = process_current();
+  struct fd_entry* fde = p->fd_table[fd];
+  if (!fde->is_dir) {
+    lock_release(&global_file_lock);
+    return false;
+  }
+  lock_release(&global_file_lock);
+  // printf("hi2\n");
+  bool success = dir_readdir(fde->dir, name);
+  // printf("success %d\n", success);
+  // printf("read name %s\n", name);
+  return success;
 }
 
 /*
@@ -562,5 +583,7 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_CHDIR) {
     // printf("henln\n");
     f->eax = chdir(args[1]);
+  } else if (args[0] == SYS_READDIR) {
+    f->eax = readdir(args[1], args[2]);
   }
 }
