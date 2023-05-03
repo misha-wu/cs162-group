@@ -166,14 +166,22 @@ int filesize (int fd) {
     lock_release(&global_file_lock);
     return -1;
   }
-  struct process* p = process_current();
-  int file_len = file_length(p->fd_table[fd]);
+  // struct process* p = process_current();
+  // int file_len = file_length(p->fd_table[fd]);
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  if (fde->is_dir) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  int file_len = file_length(fde->file);
   lock_release(&global_file_lock);
   return file_len;
 }
 
 // read syscall
 int read (int fd, void *buffer, unsigned size) {
+
+  // PANIC("at the disco");
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
@@ -201,9 +209,18 @@ int read (int fd, void *buffer, unsigned size) {
     return num_read;
   }
   // read from a file that is not stdin by calling the appropriate function
-  struct file* file = process_current()->fd_table[fd];
-  num_read = file_read(file, buffer, size);
+  // struct file* file = process_current()->fd_table[fd];
+  // num_read = file_read(file, buffer, size);
+  
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  if (fde->is_dir) {
+    printf("this is a dir what\n");
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  num_read = file_read(fde->file, buffer, size);
   lock_release(&global_file_lock);
+  // PANIC("at the disco");
   return num_read;
 }
 
@@ -232,8 +249,14 @@ int write (int fd, const void *buffer, unsigned size) {
     return size;
   }
   // write to a file that is not stdout by calling the appropriate function
-  struct file* my_file = process_current()->fd_table[fd];
-  int num_wrote = file_write(my_file, buffer, size);
+  // struct file* my_file = process_current()->fd_table[fd];
+  // int num_wrote = file_write(my_file, buffer, size);
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  if (fde->is_dir) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  int num_wrote = file_write(fde->file, buffer, size);
   lock_release(&global_file_lock);
   if (num_wrote < 0) {
     return 0;
@@ -462,6 +485,17 @@ bool chdir(const char* dir) {
   process_current()->cwd = dir_reopen(directory);
   return true;
 
+}
+
+bool readdir(int fd, char* name) {
+  lock_acquire(&global_file_lock);
+  // TODO: add dir check to read and write
+  if (!valid_fd(fd) || !process_current()->fd_table[fd]->is_dir) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  bool success = dir_readdir(process_current()->fd_table[fd], name);
+  lock_release(&global_file_lock);
 }
 
 /*

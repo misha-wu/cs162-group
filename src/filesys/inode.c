@@ -405,6 +405,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
    Returns true if successful.
    Returns false if memory or disk allocation fails. */
 bool inode_create(block_sector_t sector, off_t length) {
+  printf("creating inode with length %d\n", length);
   struct inode_disk* disk_inode = NULL;
   bool success = false;
 
@@ -454,6 +455,7 @@ bool inode_create(block_sector_t sector, off_t length) {
       disk_inode->length = length;
       success = true;
     }
+    disk_inode->is_dir = false;
     block_write(fs_device, sector, disk_inode);
     free(id);
     free(disk_inode);

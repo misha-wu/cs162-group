@@ -128,6 +128,10 @@ struct fd_entry* filesys_open_in_dir(const char* name, struct dir* cwd) {
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
 
+  if (inode == NULL) {
+    return false;
+  }
+
   // printf("henlo\n");
 
   struct fd_entry* fde = malloc(sizeof(struct fd_entry));
@@ -135,7 +139,7 @@ struct fd_entry* filesys_open_in_dir(const char* name, struct dir* cwd) {
     return NULL;
   }
   // printf("is dir %d\n", get_is_dir(inode));
-  if (get_is_dir(inode)) {
+  if (!get_is_dir(inode)) {
     fde->file = file_open(inode);
     fde->dir = NULL;
     fde->is_dir = false;
