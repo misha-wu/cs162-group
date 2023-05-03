@@ -6,6 +6,7 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "userprog/process.h"
 
 /* Partition that contains the file system. */
 struct block* fs_device;
@@ -124,7 +125,25 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
 
-  return file_open(inode);
+  struct fd_entry* fde = malloc(sizeof(struct fd_entry));
+
+  if (fde == NULL) {
+    return NULL;
+  }
+
+  if (get_is_dir(inode)) {
+    fde->is_dir = true;
+    fde->dir = dir_open(inode);
+    fde->file = NULL;
+  } else {
+    fde->is_dir = false;
+    fde->dir = NULL;
+    fde->file = file_open(inode);
+  }
+
+  return fde;
+
+  // return file_open(inode);
 }
 
 /* Deletes the file named NAME.
