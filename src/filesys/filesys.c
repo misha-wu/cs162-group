@@ -139,6 +139,8 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     fde->is_dir = true;
     fde->dir = dir_open(inode);
     fde->file = NULL;
+    struct inode* inode = NULL;
+    // dir_lookup(fde->dir, "only half a blue sky", &inode);
   } else {
     fde->is_dir = false;
     fde->dir = NULL;

@@ -41,6 +41,8 @@ bool wo_de_dir_create(block_sector_t sector, size_t entry_cnt, struct dir* paren
     inode_close(inode);
     return false;
   }
+  struct inode* inodeeee = NULL;
+  dir_lookup(parent, "parent should have ", &inodeeee);
   if (!dir_add(my_dir, "..", inode_get_inumber(parent->inode))) {
     dir_close(my_dir);
     inode_close(inode);
@@ -364,7 +366,7 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
   ASSERT(name != NULL);
 
   for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
-    // printf("looking up %s, actual name %s\n", name, e.name);
+    printf("looking up %s, actual name %s\n", name, e.name);
     if (e.in_use && !strcmp(name, e.name)) {
       if (ep != NULL)
         *ep = e;
@@ -508,7 +510,7 @@ done:
 bool dir_readdir(struct dir* dir, char name[NAME_MAX + 1]) {
   struct dir_entry e;
 
-  // printf("hello in read dir\n");
+  // printf("hello in read dir, dir->pos is %d\n", dir->pos);
 
   while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
