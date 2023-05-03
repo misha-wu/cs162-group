@@ -271,7 +271,13 @@ void seek(int fd, unsigned position) {
     lock_release(&global_file_lock);
     return;
   }
-  struct file* file = process_current()->fd_table[fd];
+  // struct file* file = process_current()->fd_table[fd];
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  if (fde->is_dir) {
+    lock_release(&global_file_lock);
+    return;
+  }
+  struct file* file = fde->file;
   file_seek(file, position);
   lock_release(&global_file_lock);
 }
@@ -283,7 +289,13 @@ unsigned tell(int fd) {
     lock_release(&global_file_lock);
     return -1;
   }
-  struct file* my_file = process_current()->fd_table[fd];
+  // struct file* my_file = process_current()->fd_table[fd];
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  if (fde->is_dir) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct file* my_file = fde->file;
   off_t ret = file_tell(my_file);
   lock_release(&global_file_lock);
   return ret;
