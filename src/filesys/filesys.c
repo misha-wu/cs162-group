@@ -125,6 +125,10 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
 
+  if (inode == NULL) {
+    return NULL;
+  }
+
   struct fd_entry* fde = malloc(sizeof(struct fd_entry));
 
   if (fde == NULL) {
