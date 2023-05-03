@@ -436,6 +436,18 @@ done:
   return success;
 }
 
+bool dir_is_empty(struct dir* dir) {
+  struct dir_entry e;
+  size_t ofs;
+  for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
+    // printf("looking up %s, actual name %s\n", name, e.name);
+    if (e.in_use && (strcmp(".", e.name) != 0 || strcmp("..", e.name) != 0)) {
+      return false;
+    }
+  }
+  return true;
+}
+
 /* Removes any entry for NAME in DIR.
    Returns true if successful, false on failure,
    which occurs only if there is no file with the given NAME. */
@@ -463,6 +475,14 @@ bool dir_remove(struct dir* dir, const char* name) {
     goto done;
 
   /* Remove inode. */
+  if (get_is_dir(inode)) {
+    struct dir* my_dir = dir_open(inode);
+    if (!dir_is_empty(my_dir)) {
+      dir_close(my_dir);
+      return false;
+    }
+    dir_close(my_dir);
+  }
   inode_remove(inode);
   success = true;
 

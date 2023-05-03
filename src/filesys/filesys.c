@@ -139,6 +139,15 @@ bool filesys_remove(const char* name) {
   return success;
 }
 
+bool filesys_remove_in_dir(const char* name, struct dir* cwd) {
+  char last_part[NAME_MAX + 1];
+  struct dir* dir = get_wo_de_dir(last_part, name, cwd);
+  bool success = dir != NULL && dir_remove(dir, name);
+  dir_close(dir);
+
+  return success;
+}
+
 /* Formats the file system. */
 static void do_format(void) {
   printf("Formatting file system...");
