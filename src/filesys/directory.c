@@ -508,9 +508,14 @@ done:
 bool dir_readdir(struct dir* dir, char name[NAME_MAX + 1]) {
   struct dir_entry e;
 
+  // printf("hello in read dir\n");
+
   while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
-    if (e.in_use) {
+    // if (e.in_use) {
+    printf("before in use name %s\n", e.name);
+    if (e.in_use && (strcmp(".", e.name) != 0 && strcmp("..", e.name) != 0)) {
+      printf("name %s\n", e.name);
       strlcpy(name, e.name, NAME_MAX + 1);
       return true;
     }
