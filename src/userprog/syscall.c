@@ -96,13 +96,18 @@ int create(char* filename, unsigned initial_size) {
     lock_release(&global_file_lock);
     exit(-1);
   // check conditions and try to create, which will return false if failed 
-  } else if (strlen(filename) > 256 || !filesys_create_in_dir(filename, initial_size, get_cwd())) {
-    lock_release(&global_file_lock);
-    return 0;
   } else {
-    lock_release(&global_file_lock);
-    return 1;
-  }
+    struct dir* cwd = get_cwd();
+    bool success = filesys_create_in_dir(filename, initial_size, cwd);
+    dir_close(cwd);
+    if (strlen(filename) > 256 || !success) {
+      lock_release(&global_file_lock);
+      return 0;
+    } else {
+      lock_release(&global_file_lock);
+      return 1;
+    }
+    }
   return 1;
 }
 
@@ -114,7 +119,9 @@ int open (char *name) {
     return -1;
   }
   // printf("in open\n");
-  struct file* file = filesys_open_in_dir(name, get_cwd());
+  struct dir* cwd = get_cwd();
+  struct file* file = filesys_open_in_dir(name, cwd);
+  dir_close(cwd);
   // printf("file is %x\n", file);
   
   if (file == NULL) {
@@ -141,7 +148,11 @@ bool remove (const char *file) {
     return NULL;
   }
   lock_release(&global_file_lock);
-  return filesys_remove(file);
+  // printf("that's all that ewe needed to be");
+  struct dir* cwd = get_cwd();  
+  bool success = filesys_remove_in_dir(file, cwd);
+  dir_close(cwd);
+  return success;
 }
 
 // filesize syscall

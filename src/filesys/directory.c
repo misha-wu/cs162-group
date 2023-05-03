@@ -119,6 +119,7 @@ static char* dice_and_slice(char* old_path) {
 
 struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct dir* cwd) {
   // printf("get wo de dir filename %s\n", filename);
+  // printf("you're the only one i still know how to see\n");
   struct dir* curr_dir;
   if (filename[0] == '/') {
     curr_dir = dir_open_root();
@@ -129,6 +130,7 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
     return NULL;
   }
   // char part[NAME_MAX + 1];
+  // printf("it can be us\n");
   bool was_file;
   int status = get_next_part(part, &filename);
   struct dir* last;
@@ -141,7 +143,9 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
     }
     // printf("part %s\n", part);
     struct inode* inode;
+    // printf("send help\n");
     bool found = dir_lookup(curr_dir, part, &inode);
+    // printf("fei niao he yu\n");
     // printf("inode at sector %d", get_sector(inode));
     status = get_next_part(part, &filename);
     // printf("status is %d and found %d\n", status, found);
@@ -440,8 +444,9 @@ bool dir_is_empty(struct dir* dir) {
   struct dir_entry e;
   size_t ofs;
   for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
-    // printf("looking up %s, actual name %s\n", name, e.name);
-    if (e.in_use && (strcmp(".", e.name) != 0 || strcmp("..", e.name) != 0)) {
+    // printf("should be empty, name is %solympi\n", e.name);
+    if (e.in_use && (strcmp(".", e.name) != 0 && strcmp("..", e.name) != 0)) {
+      // printf("inside the if, name is %solympi\n", e.name);
       return false;
     }
   }
@@ -475,12 +480,16 @@ bool dir_remove(struct dir* dir, const char* name) {
     goto done;
 
   /* Remove inode. */
+  // printf("i never thought there'd\n");
   if (get_is_dir(inode)) {
+    // printf("i'm a directory\n");
     struct dir* my_dir = dir_open(inode);
     if (!dir_is_empty(my_dir)) {
+      // printf("i'm not empty :(\n");
       dir_close(my_dir);
       return false;
     }
+    // printf("i'm empty\n");
     dir_close(my_dir);
   }
   inode_remove(inode);
