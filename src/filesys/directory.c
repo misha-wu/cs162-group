@@ -465,10 +465,12 @@ bool dir_remove(struct dir* dir, const char* name) {
   ASSERT(dir != NULL);
   ASSERT(name != NULL);
 
+  // printf("before lookup\n");
   /* Find directory entry. */
   if (!lookup(dir, name, &e, &ofs))
     goto done;
 
+  // printf("after lookup\n");
   /* Open inode. */
   inode = inode_open(e.inode_sector);
   if (inode == NULL)

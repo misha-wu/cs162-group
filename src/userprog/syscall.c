@@ -142,13 +142,14 @@ int open (char *name) {
 
 // remove syscall
 bool remove (const char *file) {
+  // printf("in remove syscall :')\n");
   lock_acquire(&global_file_lock);
   if (file == NULL) {
     lock_release(&global_file_lock);
     return NULL;
   }
   lock_release(&global_file_lock);
-  // printf("that's all that ewe needed to be");
+  // printf("before get cwd in remove\n");
   struct dir* cwd = get_cwd();  
   bool success = filesys_remove_in_dir(file, cwd);
   dir_close(cwd);

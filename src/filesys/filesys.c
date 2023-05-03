@@ -144,8 +144,9 @@ bool filesys_remove_in_dir(const char* name, struct dir* cwd) {
   // printf("what if it's you\n");
   // dir_lookup(cwd, "only half a blue sky", &inode);
   struct dir* dir = get_wo_de_dir(last_part, name, cwd);
-  // printf("it's only us\n");
-  bool success = dir != NULL && dir_remove(dir, name);
+  // printf("it's only us, dir is not null is %d\n", dir != NULL);
+  bool success = dir != NULL && dir_remove(dir, last_part);
+  // printf("removed with success %d\n", success);
   dir_close(dir);
 
   return success;
