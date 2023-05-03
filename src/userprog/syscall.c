@@ -120,21 +120,24 @@ int open (char *name) {
   }
   // printf("in open\n");
   struct dir* cwd = get_cwd();
-  struct file* file = filesys_open_in_dir(name, cwd);
+  // struct file* file = filesys_open_in_dir(name, cwd);
+  struct fd_entry* fde = filesys_open_in_dir(name, cwd);;
   dir_close(cwd);
-  // printf("file is %x\n", file);
+  // printf("fde is %x\n", fde);
   
-  if (file == NULL) {
+  if (fde == NULL) {
     lock_release(&global_file_lock);
     return -1;
   }
   struct process* p = process_current();
   if (strcmp(p->process_name, name) == 0) {
-    file_deny_write(file);
+    // file_deny_write(file);
+    file_deny_write(fde->file);
   }
   // add file to fd table and increment next available fd
   int fd = p->fd_index;
-  p->fd_table[fd] = file;
+  // p->fd_table[fd] = file;
+  p->fd_table[fd] = fde;
   p->fd_index++;
   lock_release(&global_file_lock);
   return fd;
@@ -269,8 +272,14 @@ void close(int fd) {
   if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
   } else {
-    struct file* file = process_current()->fd_table[fd];
-    file_close(file);
+    // struct file* file = process_current()->fd_table[fd];
+    // file_close(file);
+    struct fd_entry* fde = process_current()->fd_table[fd];
+    if (fde->is_dir) {
+      dir_close(fde->dir);
+    } else {
+      file_close(fde->file);
+    }
     // mark that a fd has been closed by setting it to null
     process_current()->fd_table[fd] = NULL;
     lock_release(&global_file_lock);

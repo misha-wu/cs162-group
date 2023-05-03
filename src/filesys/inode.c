@@ -41,6 +41,10 @@ struct inode {
   struct inode_disk data; /* Inode content. */
 };
 
+int get_open_count(struct inode* inode) {
+  return inode->open_cnt;
+}
+
 struct inode_disk* get_id(struct inode* inode) {
   struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
   if (id == NULL) {

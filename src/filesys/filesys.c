@@ -6,6 +6,8 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "userprog/process.h"
+
 
 /* Partition that contains the file system. */
 struct block* fs_device;
@@ -101,7 +103,7 @@ struct file* filesys_open(const char* name) {
   return file_open(inode);
 }
 
-struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
+struct fd_entry* filesys_open_in_dir(const char* name, struct dir* cwd) {
   // struct dir* dir = dir_open_root();
   // struct dir* cwd = get_cwd();
   // struct dir* dir = get_wo_de_dir(name, cwd);
@@ -115,8 +117,10 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
   // struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
   // get_last_part(last_part, &name);
   // free(diced);
+  // printf("name is %s\n", name);
   struct dir* dir = get_wo_de_dir(last_part, name, cwd);
   // printf("wo de dir %x, inode %x\n", dir, get_dir_inode(dir));
+  // printf("last part is %s\n", last_part);
   // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
 
@@ -124,7 +128,26 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
 
-  return file_open(inode);
+  // printf("henlo\n");
+
+  struct fd_entry* fde = malloc(sizeof(struct fd_entry));
+  if (fde == NULL) {
+    return NULL;
+  }
+  // printf("is dir %d\n", get_is_dir(inode));
+  if (get_is_dir(inode)) {
+    fde->file = file_open(inode);
+    fde->dir = NULL;
+    fde->is_dir = false;
+  } else {
+    fde->file = NULL;
+    fde->dir = dir_open(inode);
+    fde->is_dir = true;
+  }
+  // printf("before return\n");
+  return fde;
+
+  // return file_open(inode);
 }
 
 /* Deletes the file named NAME.

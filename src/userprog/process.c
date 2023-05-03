@@ -283,6 +283,7 @@ void process_exit(void) {
   for (int i = 0; i < 256; i++) {
     if (p->fd_table[i] != NULL) {
       close(i);
+      free(p->fd_table[i]);
     }
   }
 
