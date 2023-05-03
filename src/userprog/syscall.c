@@ -121,17 +121,16 @@ int open (char *name) {
   // printf("in open\n");
   struct dir* cwd = get_cwd();
   // struct file* file = filesys_open_in_dir(name, cwd);
-  struct fd_entry* fde = filesys_open_in_dir(name, cwd);;
+  struct fd_entry* fde = filesys_open_in_dir(name, cwd);
   dir_close(cwd);
-  // printf("fde is %x\n", fde);
+  // printf("file is %x\n", file);
   
   if (fde == NULL) {
     lock_release(&global_file_lock);
     return -1;
   }
   struct process* p = process_current();
-  if (strcmp(p->process_name, name) == 0) {
-    // file_deny_write(file);
+  if (strcmp(p->process_name, name) == 0 && fde->file != NULL) {
     file_deny_write(fde->file);
   }
   // add file to fd table and increment next available fd
@@ -166,13 +165,13 @@ int filesize (int fd) {
     lock_release(&global_file_lock);
     return -1;
   }
-  // struct process* p = process_current();
-  // int file_len = file_length(p->fd_table[fd]);
-  struct fd_entry* fde = process_current()->fd_table[fd];
+  struct process* p = process_current();
+  struct fd_entry* fde = p->fd_table[fd];
   if (fde->is_dir) {
     lock_release(&global_file_lock);
     return -1;
   }
+  // int file_len = file_length(p->fd_table[fd]);
   int file_len = file_length(fde->file);
   lock_release(&global_file_lock);
   return file_len;
@@ -180,8 +179,6 @@ int filesize (int fd) {
 
 // read syscall
 int read (int fd, void *buffer, unsigned size) {
-
-  // PANIC("at the disco");
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
@@ -211,16 +208,13 @@ int read (int fd, void *buffer, unsigned size) {
   // read from a file that is not stdin by calling the appropriate function
   // struct file* file = process_current()->fd_table[fd];
   // num_read = file_read(file, buffer, size);
-  
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    printf("this is a dir what\n");
     lock_release(&global_file_lock);
     return -1;
   }
   num_read = file_read(fde->file, buffer, size);
   lock_release(&global_file_lock);
-  // PANIC("at the disco");
   return num_read;
 }
 
@@ -272,13 +266,13 @@ void seek(int fd, unsigned position) {
     return;
   }
   // struct file* file = process_current()->fd_table[fd];
+  // file_seek(file, position);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
     lock_release(&global_file_lock);
-    return;
+    return -1;
   }
-  struct file* file = fde->file;
-  file_seek(file, position);
+  file_seek(fde->file, position);
   lock_release(&global_file_lock);
 }
 
@@ -290,13 +284,13 @@ unsigned tell(int fd) {
     return -1;
   }
   // struct file* my_file = process_current()->fd_table[fd];
+  // off_t ret = file_tell(my_file);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
     lock_release(&global_file_lock);
     return -1;
   }
-  struct file* my_file = fde->file;
-  off_t ret = file_tell(my_file);
+  off_t ret = file_tell(fde->file);
   lock_release(&global_file_lock);
   return ret;
 }
@@ -309,6 +303,7 @@ void close(int fd) {
   } else {
     // struct file* file = process_current()->fd_table[fd];
     // file_close(file);
+
     struct fd_entry* fde = process_current()->fd_table[fd];
     if (fde->is_dir) {
       dir_close(fde->dir);
@@ -316,6 +311,7 @@ void close(int fd) {
       file_close(fde->file);
     }
     free(fde);
+
     // mark that a fd has been closed by setting it to null
     process_current()->fd_table[fd] = NULL;
     lock_release(&global_file_lock);
@@ -498,17 +494,6 @@ bool chdir(const char* dir) {
   process_current()->cwd = dir_reopen(directory);
   return true;
 
-}
-
-bool readdir(int fd, char* name) {
-  lock_acquire(&global_file_lock);
-  // TODO: add dir check to read and write
-  if (!valid_fd(fd) || !process_current()->fd_table[fd]->is_dir) {
-    lock_release(&global_file_lock);
-    return -1;
-  }
-  bool success = dir_readdir(process_current()->fd_table[fd], name);
-  lock_release(&global_file_lock);
 }
 
 /*
