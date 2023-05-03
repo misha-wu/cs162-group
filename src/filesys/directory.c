@@ -46,6 +46,13 @@ bool wo_de_dir_create(block_sector_t sector, size_t entry_cnt, struct dir* paren
     inode_close(inode);
     return false;
   }
+  if (sector == ROOT_DIR_SECTOR) {
+    if (!dir_add(my_dir, "/", ROOT_DIR_SECTOR)) {
+      dir_close(my_dir);
+      inode_close(inode);
+      return false;
+    }
+  }
   dir_close(my_dir);
   inode_close(inode);
   return true;
@@ -129,10 +136,15 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
   if (curr_dir == NULL) {
     return NULL;
   }
+  // very scuffed, this strlcpy is so that part contains the filename if the filename is "/"
+  strlcpy(part, filename, NAME_MAX + 1);
   // char part[NAME_MAX + 1];
   // printf("it can be us\n");
   bool was_file;
   int status = get_next_part(part, &filename);
+  if (status == 0) {
+    return curr_dir;
+  }
   struct dir* last;
   struct dir* sec_last;
   while (true) {
@@ -485,6 +497,9 @@ bool dir_remove(struct dir* dir, const char* name) {
   // printf("i never thought there'd\n");
   if (get_is_dir(inode)) {
     // printf("i'm a directory\n");
+    if (get_open_count(inode) != 0) {
+      return false;
+    }
     struct dir* my_dir = dir_open(inode);
     if (!dir_is_empty(my_dir)) {
       // printf("i'm not empty :(\n");
