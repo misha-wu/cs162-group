@@ -30,8 +30,10 @@ struct process {
   struct thread* main_thread;     /* Pointer to main thread */
   struct process_status* my_own;  /* Stores the current process's process_status */
   struct list children;           /* Pintos list of children's process_status */
-  struct file* fd_table[256];     /* Array of file* storing mappings from file descriptors to files */
+  // struct file* fd_table[256]; 
+  struct fd_entry* fd_table[256];     /* Array of file* storing mappings from file descriptors to files */
   int fd_index;                   /* The next available file descriptor */
+  struct dir* cwd;
 };
 
 typedef struct process_status { 
@@ -47,6 +49,13 @@ typedef struct process_status {
 struct start_process_arg {        /* Struct to pass in as an argument to start_process, */
   process_status_t* child_status; /* so that we are able to pass in our process_status in addition to the file_name */
   char* file_name;
+  struct dir* cwd;
+};
+
+struct fd_entry {
+  struct file* file;
+  struct dir* dir;
+  bool is_dir;
 };
 
 void userprog_init(void);

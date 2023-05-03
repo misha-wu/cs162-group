@@ -23,5 +23,6 @@ void seek(int fd, unsigned position);
 unsigned tell(int fd);
 void close(int fd);
 bool remove (const char *file);
+struct dir* get_cwd(void);
 
 #endif /* userprog/syscall.h */

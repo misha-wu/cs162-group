@@ -130,6 +130,7 @@ int main(void) {
   ide_init();
   locate_block_devices();
   filesys_init(format_filesys);
+  userprog_file_init();
 #endif
 
   printf("Boot complete.\n");

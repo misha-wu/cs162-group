@@ -6,6 +6,7 @@
 #include "filesys/free-map.h"
 #include "filesys/inode.h"
 #include "filesys/directory.h"
+#include "userprog/process.h"
 
 /* Partition that contains the file system. */
 struct block* fs_device;
@@ -67,11 +68,12 @@ bool filesys_create_in_dir(const char* name, off_t initial_size, struct dir* cwd
   // struct dir* dir = dir_open_root();
   // struct dir* cwd = get_cwd();
   char last_part[NAME_MAX + 1];
-  char* diced = dice_and_slice(name);
-  struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
-  get_last_part(last_part, &name);
-  free(diced);
-  printf("creating file so\n");
+  // char* diced = dice_and_slice(name);
+  // struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
+  // get_last_part(last_part, &name);
+  // free(diced);
+  struct dir* dir = get_wo_de_dir(last_part, name, cwd);
+  // printf("creating file so\n");
   bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
                   inode_create(inode_sector, initial_size) && dir_add(dir, last_part, inode_sector));
   if (!success && inode_sector != 0)
@@ -110,11 +112,12 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
 
   // PANIC("half a man");
 
-  char* diced = dice_and_slice(name);
-  struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
-  get_last_part(last_part, &name);
-  free(diced);
-  printf("wo de dir %x, inode %x\n", dir, get_dir_inode(dir));
+  // char* diced = dice_and_slice(name);
+  // struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
+  // get_last_part(last_part, &name);
+  // free(diced);
+  struct dir* dir = get_wo_de_dir(last_part, name, cwd);
+  // printf("wo de dir %x, inode %x\n", dir, get_dir_inode(dir));
   // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
 
@@ -122,7 +125,29 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
 
-  return file_open(inode);
+  if (inode == NULL) {
+    return NULL;
+  }
+
+  struct fd_entry* fde = malloc(sizeof(struct fd_entry));
+
+  if (fde == NULL) {
+    return NULL;
+  }
+
+  if (get_is_dir(inode)) {
+    fde->is_dir = true;
+    fde->dir = dir_open(inode);
+    fde->file = NULL;
+  } else {
+    fde->is_dir = false;
+    fde->dir = NULL;
+    fde->file = file_open(inode);
+  }
+
+  return fde;
+
+  // return file_open(inode);
 }
 
 /* Deletes the file named NAME.
@@ -132,6 +157,19 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
 bool filesys_remove(const char* name) {
   struct dir* dir = dir_open_root();
   bool success = dir != NULL && dir_remove(dir, name);
+  dir_close(dir);
+
+  return success;
+}
+
+bool filesys_remove_in_dir(const char* name, struct dir* cwd) {
+  char last_part[NAME_MAX + 1];
+  // printf("what if it's you\n");
+  // dir_lookup(cwd, "only half a blue sky", &inode);
+  struct dir* dir = get_wo_de_dir(last_part, name, cwd);
+  // printf("it's only us, dir is not null is %d\n", dir != NULL);
+  bool success = dir != NULL && dir_remove(dir, last_part);
+  // printf("removed with success %d\n", success);
   dir_close(dir);
 
   return success;
