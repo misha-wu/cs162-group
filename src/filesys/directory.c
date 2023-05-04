@@ -486,6 +486,11 @@ bool dir_remove(struct dir* dir, const char* name) {
   if (inode == NULL)
     goto done;
 
+  // printf("open count is %d\n", get_open_count(inode));
+  if (get_open_count(inode) > 1) {
+    return false;
+  }
+
   /* Erase directory entry. */
   e.in_use = false;
   if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e)
@@ -494,10 +499,7 @@ bool dir_remove(struct dir* dir, const char* name) {
   /* Remove inode. */
   // printf("i never thought there'd\n");
   if (get_is_dir(inode)) {
-    // printf("open count is %d\n", get_open_count(inode));
-    if (get_open_count(inode) > 1) {
-      return false;
-    }
+    
     // printf("i'm a directory\n");
     struct dir* my_dir = dir_open(inode);
     if (!dir_is_empty(my_dir)) {
