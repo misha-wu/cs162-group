@@ -42,11 +42,18 @@ bool wo_de_dir_create(block_sector_t sector, size_t entry_cnt, struct dir* paren
     return false;
   }
   struct inode* inodeeee = NULL;
-  dir_lookup(parent, "parent should have ", &inodeeee);
+  // dir_lookup(parent, "parent should have ", &inodeeee);
   if (!dir_add(my_dir, "..", inode_get_inumber(parent->inode))) {
     dir_close(my_dir);
     inode_close(inode);
     return false;
+  }
+  if (sector == ROOT_DIR_SECTOR) {
+    if (!dir_add(my_dir, "/", ROOT_DIR_SECTOR)) {
+      dir_close(my_dir);
+      inode_close(inode);
+      return false;
+    }
   }
   dir_close(my_dir);
   inode_close(inode);
@@ -135,6 +142,11 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
   // printf("it can be us\n");
   bool was_file;
   int status = get_next_part(part, &filename);
+    // printf("status is %d", status);
+  if (status == 0) {
+    strlcpy(part, filename, NAME_MAX);
+    return curr_dir;
+  }
   struct dir* last;
   struct dir* sec_last;
   while (true) {

@@ -121,9 +121,14 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
   // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
 
+  // printf("last part %s\n", last_part);
+  // printf("name %s\n", name);
+
   if (dir != NULL)
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
+
+  // printf("i don't wanna le you go\n");
 
   if (inode == NULL) {
     return NULL;
@@ -146,6 +151,8 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     fde->dir = NULL;
     fde->file = file_open(inode);
   }
+
+  // printf("i can't wait no more \n");
 
   return fde;
 

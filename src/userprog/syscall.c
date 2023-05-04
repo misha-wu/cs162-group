@@ -472,7 +472,7 @@ bool mkdir(const char* dir) {
   // printf("5\n");
   if (!dir_add(directory, last_part, sector)) {
     dir_close(directory);
-    printf("dir add failed :(\n");
+    // printf("dir add failed :(\n");
     return false;
   }
   dir_close(directory);
