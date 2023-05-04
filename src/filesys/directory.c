@@ -144,7 +144,9 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
   int status = get_next_part(part, &filename);
     // printf("status is %d", status);
   if (status == 0) {
-    strlcpy(part, filename, NAME_MAX);
+    part[0] = '/';
+    part[1] = 0;
+    // strlcpy(part, filename, 1);
     return curr_dir;
   }
   struct dir* last;
