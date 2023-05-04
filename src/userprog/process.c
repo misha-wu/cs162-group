@@ -287,6 +287,8 @@ void process_exit(void) {
     }
   }
 
+  dir_close(p->cwd);
+
   /* Destroy the current process's page directory and switch back
      to the kernel-only page directory. */
   pd = cur->pcb->pagedir;
