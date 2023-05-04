@@ -103,6 +103,9 @@ struct file* filesys_open(const char* name) {
 }
 
 struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
+  if (strcmp("", name) == 0) {
+    return false;
+  }
   // struct dir* dir = dir_open_root();
   // struct dir* cwd = get_cwd();
   // struct dir* dir = get_wo_de_dir(name, cwd);
