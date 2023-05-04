@@ -500,6 +500,7 @@ bool chdir(const char* dir) {
   char last_part[NAME_MAX + 1];
 
   struct dir* directory = get_wo_de_dir(last_part, scuffed, cwd);
+  free(scuffed);
   dir_close(cwd);
   if (directory == NULL) {
     return false;
