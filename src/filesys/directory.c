@@ -48,6 +48,7 @@ bool wo_de_dir_create(block_sector_t sector, size_t entry_cnt, struct dir* paren
     inode_close(inode);
     return false;
   }
+  // printf("open count in wo de dir create is %d\n", get_open_count(inode));
   // if (sector == ROOT_DIR_SECTOR) {
   //   if (!dir_add(my_dir, "/", ROOT_DIR_SECTOR)) {
   //     dir_close(my_dir);
@@ -164,21 +165,12 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
     // printf("fei niao he yu\n");
     // printf("inode at sector %d", get_sector(inode));
     status = get_next_part(part, &filename);
-    // printf("status is %d and found %d\n", status, found);
-    // if (!found) {
-    //   if (status == 0) {
-    //     // printf("inside the if\n");
-    //     // struct inode* help = curr_dir->inode;
-    //     // close(curr_dir);
-    //     // issues: ref counting
-    //     return curr_dir;
-    //   }
-    //   return NULL;
-    // }
     if (status == 0) {
+      inode_close(inode);
       return curr_dir;
     }
     if (!found) {
+      inode_close(inode);
       return NULL;
     }
     // printf("inode at sector %d", get_sector(inode));
@@ -186,6 +178,7 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
     bool is_dir = get_is_dir(inode);
     if (!is_dir) {
       printf("panicked at the disco when part was %s\n", part);
+      inode_close(inode);
       dir_close(curr_dir);
       return NULL;
       // PANIC("panic at the disco");
@@ -489,6 +482,7 @@ bool dir_remove(struct dir* dir, const char* name) {
   // printf("after lookup\n");
   /* Open inode. */
   inode = inode_open(e.inode_sector);
+  // printf("open count after opening is %d\n", get_open_count(inode));
   if (inode == NULL)
     goto done;
 
@@ -500,6 +494,10 @@ bool dir_remove(struct dir* dir, const char* name) {
   /* Remove inode. */
   // printf("i never thought there'd\n");
   if (get_is_dir(inode)) {
+    // printf("open count is %d\n", get_open_count(inode));
+    if (get_open_count(inode) > 1) {
+      return false;
+    }
     // printf("i'm a directory\n");
     struct dir* my_dir = dir_open(inode);
     if (!dir_is_empty(my_dir)) {
