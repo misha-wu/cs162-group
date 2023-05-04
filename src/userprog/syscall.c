@@ -148,6 +148,8 @@ int open (char *name) {
   // p->fd_table[fd] = file;
   p->fd_table[fd] = fde;
   p->fd_index++;
+
+  // printf("opened %s, is dir %d\n", name, fde->is_dir);
   
   lock_release(&global_file_lock);
   return fd;
@@ -530,6 +532,36 @@ bool readdir(int fd, char* name) {
   return success;
 }
 
+int inumber(int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  struct inode* inode;
+  if (!fde->is_dir) {
+    inode = file_get_inode(fde->file);
+  } else {
+    inode = dir_get_inode(fde->dir);
+  }
+  // struct inode* inode = process_current()->fd_table[fd]->inode;
+  lock_release(&global_file_lock);
+  return inode_get_inumber(inode);
+}
+
+bool isdir(int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return false;
+  }
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  bool isdir = fde->is_dir;
+  lock_release(&global_file_lock);
+  return isdir;
+}
+
 /*
 call helper, which does argument checking.
 */
@@ -598,5 +630,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = chdir(args[1]);
   } else if (args[0] == SYS_READDIR) {
     f->eax = readdir(args[1], args[2]);
+  } else if (args[0] == SYS_INUMBER) {
+    f->eax = inumber(args[1]);
+  } else if (args[0] == SYS_ISDIR) {
+    f->eax = isdir(args[1]);
   }
 }
