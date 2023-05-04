@@ -177,6 +177,9 @@ bool filesys_remove(const char* name) {
 }
 
 bool filesys_remove_in_dir(const char* name, struct dir* cwd) {
+  if (strcmp("/", name) == 0) {
+    return false;
+  }
   char last_part[NAME_MAX + 1];
   // printf("what if it's you\n");
   // dir_lookup(cwd, "only half a blue sky", &inode);
