@@ -97,18 +97,24 @@ int create(char* filename, unsigned initial_size) {
     exit(-1);
   // check conditions and try to create, which will return false if failed 
   } else {
+    struct process* p = process_current();
+    // printf("fd index %d\n", p->fd_index);
+    if (p->fd_index >= 511) {
+      lock_release(&global_file_lock);
+      return 0;
+    }
+    if (strlen(filename) > 256) {
+      lock_release(&global_file_lock);
+      return 0;
+    }
     struct dir* cwd = get_cwd();
     bool success = filesys_create_in_dir(filename, initial_size, cwd);
     dir_close(cwd);
-    if (strlen(filename) > 256 || !success) {
-      lock_release(&global_file_lock);
-      return 0;
-    } else {
-      lock_release(&global_file_lock);
-      return 1;
-    }
-    }
-  return 1;
+    lock_release(&global_file_lock);
+    // printf("create succeeded %d\n", success);
+    return success;
+  }
+  return 0;
 }
 
 // open syscall
@@ -134,10 +140,15 @@ int open (char *name) {
     file_deny_write(fde->file);
   }
   // add file to fd table and increment next available fd
+  if (p->fd_index >= 511) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
   int fd = p->fd_index;
   // p->fd_table[fd] = file;
   p->fd_table[fd] = fde;
   p->fd_index++;
+  
   lock_release(&global_file_lock);
   return fd;
 }
@@ -437,9 +448,9 @@ bool mkdir(const char* dir) {
   // struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
   // get_last_part(last_part, &dir);
   struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
-  dir_close(cwd);
   // free(diced);
   if (directory == NULL) {
+    dir_close(cwd);
     return false;
   }
   // printf("2\n");
@@ -448,7 +459,8 @@ bool mkdir(const char* dir) {
     return false;
   }
   // dir_create(sector, 16);
-  wo_de_dir_create(sector, 16);
+  wo_de_dir_create(sector, 16, cwd);
+  dir_close(cwd);
   // printf("3\n");
   // // struct dir* directory = dir_open(inode);
   // printf("4\n");
@@ -497,7 +509,7 @@ bool chdir(const char* dir) {
 }
 
 bool readdir(int fd, char* name) {
-  // printf("hi\n");
+  // printf("hi in readdir\n");
   lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
     lock_release(&global_file_lock);
@@ -506,6 +518,7 @@ bool readdir(int fd, char* name) {
   struct process* p = process_current();
   struct fd_entry* fde = p->fd_table[fd];
   if (!fde->is_dir) {
+    // printf("not a directory\n");
     lock_release(&global_file_lock);
     return false;
   }
