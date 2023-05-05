@@ -103,6 +103,9 @@ struct file* filesys_open(const char* name) {
 }
 
 struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
+  if (strcmp("", name) == 0) {
+    return false;
+  }
   // struct dir* dir = dir_open_root();
   // struct dir* cwd = get_cwd();
   // struct dir* dir = get_wo_de_dir(name, cwd);
@@ -121,9 +124,14 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
   // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
 
+  // printf("last part %s\n", last_part);
+  // printf("name %s\n", name);
+
   if (dir != NULL)
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
+
+  // printf("i don't wanna le you go\n");
 
   if (inode == NULL) {
     return NULL;
@@ -136,14 +144,20 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
   }
 
   if (get_is_dir(inode)) {
+    // printf("%s is dir\n", name);
     fde->is_dir = true;
     fde->dir = dir_open(inode);
     fde->file = NULL;
+    struct inode* inode = NULL;
+    // dir_lookup(fde->dir, "only half a blue sky", &inode);
   } else {
+    // printf("%s is not dir\n", name);
     fde->is_dir = false;
     fde->dir = NULL;
     fde->file = file_open(inode);
   }
+
+  // printf("i can't wait no more \n");
 
   return fde;
 
@@ -163,6 +177,9 @@ bool filesys_remove(const char* name) {
 }
 
 bool filesys_remove_in_dir(const char* name, struct dir* cwd) {
+  if (strcmp("/", name) == 0) {
+    return false;
+  }
   char last_part[NAME_MAX + 1];
   // printf("what if it's you\n");
   // dir_lookup(cwd, "only half a blue sky", &inode);

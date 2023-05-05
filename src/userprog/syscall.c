@@ -97,18 +97,24 @@ int create(char* filename, unsigned initial_size) {
     exit(-1);
   // check conditions and try to create, which will return false if failed 
   } else {
+    struct process* p = process_current();
+    // printf("fd index %d\n", p->fd_index);
+    if (p->fd_index >= 511) {
+      lock_release(&global_file_lock);
+      return 0;
+    }
+    if (strlen(filename) > 256) {
+      lock_release(&global_file_lock);
+      return 0;
+    }
     struct dir* cwd = get_cwd();
     bool success = filesys_create_in_dir(filename, initial_size, cwd);
     dir_close(cwd);
-    if (strlen(filename) > 256 || !success) {
-      lock_release(&global_file_lock);
-      return 0;
-    } else {
-      lock_release(&global_file_lock);
-      return 1;
-    }
-    }
-  return 1;
+    lock_release(&global_file_lock);
+    // printf("create succeeded %d\n", success);
+    return success;
+  }
+  return 0;
 }
 
 // open syscall
@@ -134,10 +140,17 @@ int open (char *name) {
     file_deny_write(fde->file);
   }
   // add file to fd table and increment next available fd
+  if (p->fd_index >= 511) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
   int fd = p->fd_index;
   // p->fd_table[fd] = file;
   p->fd_table[fd] = fde;
   p->fd_index++;
+
+  // printf("opened %s, is dir %d\n", name, fde->is_dir);
+  
   lock_release(&global_file_lock);
   return fd;
 }
@@ -437,9 +450,9 @@ bool mkdir(const char* dir) {
   // struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
   // get_last_part(last_part, &dir);
   struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
-  dir_close(cwd);
   // free(diced);
   if (directory == NULL) {
+    dir_close(cwd);
     return false;
   }
   // printf("2\n");
@@ -448,7 +461,8 @@ bool mkdir(const char* dir) {
     return false;
   }
   // dir_create(sector, 16);
-  wo_de_dir_create(sector, 16);
+  wo_de_dir_create(sector, 16, cwd);
+  dir_close(cwd);
   // printf("3\n");
   // // struct dir* directory = dir_open(inode);
   // printf("4\n");
@@ -460,7 +474,7 @@ bool mkdir(const char* dir) {
   // printf("5\n");
   if (!dir_add(directory, last_part, sector)) {
     dir_close(directory);
-    printf("dir add failed :(\n");
+    // printf("dir add failed :(\n");
     return false;
   }
   dir_close(directory);
@@ -486,14 +500,67 @@ bool chdir(const char* dir) {
   char last_part[NAME_MAX + 1];
 
   struct dir* directory = get_wo_de_dir(last_part, scuffed, cwd);
+  free(scuffed);
   dir_close(cwd);
   if (directory == NULL) {
     return false;
   }
   dir_close(process_current()->cwd);
-  process_current()->cwd = dir_reopen(directory);
+  process_current()->cwd = directory;
   return true;
 
+}
+
+bool readdir(int fd, char* name) {
+  // printf("hi in readdir\n");
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return false;
+  }
+  struct process* p = process_current();
+  struct fd_entry* fde = p->fd_table[fd];
+  if (!fde->is_dir) {
+    // printf("not a directory\n");
+    lock_release(&global_file_lock);
+    return false;
+  }
+  lock_release(&global_file_lock);
+  // printf("hi2\n");
+  bool success = dir_readdir(fde->dir, name);
+  // printf("success %d\n", success);
+  // printf("read name %s\n", name);
+  return success;
+}
+
+int inumber(int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return -1;
+  }
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  struct inode* inode;
+  if (!fde->is_dir) {
+    inode = file_get_inode(fde->file);
+  } else {
+    inode = dir_get_inode(fde->dir);
+  }
+  // struct inode* inode = process_current()->fd_table[fd]->inode;
+  lock_release(&global_file_lock);
+  return inode_get_inumber(inode);
+}
+
+bool isdir(int fd) {
+  lock_acquire(&global_file_lock);
+  if (!valid_fd(fd)) {
+    lock_release(&global_file_lock);
+    return false;
+  }
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  bool isdir = fde->is_dir;
+  lock_release(&global_file_lock);
+  return isdir;
 }
 
 /*
@@ -562,5 +629,11 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_CHDIR) {
     // printf("henln\n");
     f->eax = chdir(args[1]);
+  } else if (args[0] == SYS_READDIR) {
+    f->eax = readdir(args[1], args[2]);
+  } else if (args[0] == SYS_INUMBER) {
+    f->eax = inumber(args[1]);
+  } else if (args[0] == SYS_ISDIR) {
+    f->eax = isdir(args[1]);
   }
 }
