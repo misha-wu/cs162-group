@@ -44,7 +44,15 @@ void filesys_init(bool format) {
 
 /* Shuts down the file system module, writing any unwritten data
    to disk. */
-void filesys_done(void) { free_map_close(); }
+// void filesys_done(void) { free_map_close(); }
+void filesys_done(void) { 
+  free_map_close(); 
+  for (int i = 0; i < 64; i++) {
+    if (cache[i]->dirty) {
+      block_write(cache[i]->block, cache[i]->sector, cache[i]->contents);
+    }
+  }
+}
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
    Returns true if successful, false otherwise.
