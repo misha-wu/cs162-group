@@ -3,6 +3,9 @@
 cache_block_t* check_cache(struct block* block, block_sector_t sector, void* buffer) {
     for (int i = 0; i < 64; i++) {
         cache_block_t* cache_block = cache[i];
+        if (cache[i] == NULL) {
+            continue;
+        }
         lock_acquire(&cache_block->lock);
         if (&cache_block->block == block & cache_block->sector == sector) { // can i compare blocks like this?? 
             memcpy(buffer, cache_block->contents, sizeof(cache_block->contents));
