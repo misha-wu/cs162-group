@@ -7,6 +7,7 @@
 #include "filesys/inode.h"
 #include "filesys/directory.h"
 #include "userprog/process.h"
+#include "filesys/buffer.h"
 
 /* Partition that contains the file system. */
 struct block* fs_device;
@@ -27,6 +28,18 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
+
+  // start: wo de buffer cache code 
+  lock_init(&global_cache_lock);
+  // free_map = malloc(64 * sizeof(bool));
+  for (int i = 0; i < 64; i++) {
+    free_map[i] = true;
+  }
+  clock_index = 0;
+  
+
+  // end: wo de buffer cache code
+
 }
 
 /* Shuts down the file system module, writing any unwritten data
