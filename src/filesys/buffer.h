@@ -23,10 +23,16 @@ typedef struct cache_block {
   struct list_elem elem;
 } cache_block_t;
 
-cache_block_t* check_cache(struct block* block, block_sector_t sector, void* buffer);
-
-// our cache is a 64-array of cache_blocks
-struct cache_block cache[64];
+// our cache is a 64-array of cache_block pointers
+struct cache_block* cache[64];
+struct lock global_cache_lock;
 bool free_map[64];
 int clock_index;
+
+cache_block_t* check_cache(struct block* block, block_sector_t sector, void* buffer);
+cache_block_t* cache_read(struct block* block, block_sector_t sector, void* buffer);
+void cache_write(struct block* block, block_sector_t sector, const void* buffer);
+uint8_t clock_algorithm(void);
+
+
 
