@@ -44,7 +44,7 @@ cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     lock_acquire(&global_cache_lock);
     for (int i = 0; i < 64; i++) {
         if (free_map[i]) {
-            printf("i is %d\n", i);
+            // printf("i is %d\n", i);
             // TODO do some locking
             free_map[i] = false;
             cache[i] = cache_block;
@@ -81,6 +81,7 @@ cache_block_t* cache_read(struct block* block, block_sector_t sector) {
                 }
                 cache[evict_index] = cache_block;
                 lock_release(&to_evict->lock);
+                free(to_evict);
                 break;
             }
         }
