@@ -21,5 +21,6 @@ void inode_allow_write(struct inode*);
 off_t inode_length(const struct inode*);
 // struct inode_disk* get_id(struct inode*);
 block_sector_t get_sector(struct inode* inode);
+void cache_init();
 
 #endif /* filesys/inode.h */

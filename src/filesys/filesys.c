@@ -22,13 +22,7 @@ void filesys_init(bool format) {
     PANIC("No file system device found, can't initialize file system.");
 
   // start: wo de buffer cache code 
-  lock_init(&global_cache_lock);
-  // free_map = malloc(64 * sizeof(bool));
-  for (int i = 0; i < 64; i++) {
-    free_map[i] = true;
-    cache[i] = NULL;
-  }
-  clock_index = 0;
+  cache_init();
   // end: wo de buffer cache code
 
 
@@ -48,14 +42,7 @@ void filesys_init(bool format) {
 // void filesys_done(void) { free_map_close(); }
 void filesys_done(void) { 
   free_map_close(); 
-  for (int i = 0; i < 64; i++) {
-    if (cache[i] == NULL) {
-      continue;
-    }
-    if (cache[i]->dirty) {
-      block_write(cache[i]->block, cache[i]->sector, cache[i]->contents);
-    }
-  }
+  cache_flush();
 }
 
 /* Creates a file named NAME with the given INITIAL_SIZE.
