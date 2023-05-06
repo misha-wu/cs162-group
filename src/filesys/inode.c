@@ -706,12 +706,14 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
   // uint8_t* bounce = NULL;
 
   while (size > 0) {
+    lock_acquire(&inode->lock);
     /* Disk sector to read, starting byte offset within sector. */
     block_sector_t sector_idx = byte_to_sector(inode, offset);
     int sector_ofs = offset % BLOCK_SECTOR_SIZE;
 
     /* Bytes left in inode, bytes left in sector, lesser of the two. */
     off_t inode_left = inode_length(inode) - offset;
+    lock_release(&inode->lock);
     int sector_left = BLOCK_SECTOR_SIZE - sector_ofs;
     int min_left = inode_left < sector_left ? inode_left : sector_left;
 
@@ -719,8 +721,9 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
 
     /* Number of bytes to actually copy out of this sector. */
     int chunk_size = size < min_left ? size : min_left;
-    if (chunk_size <= 0)
+    if (chunk_size <= 0) {
       break;
+    }
 
     if (sector_ofs == 0 && chunk_size == BLOCK_SECTOR_SIZE) {
       /* Read full sector directly into caller's buffer. */
@@ -745,9 +748,10 @@ off_t inode_read_at(struct inode* inode, void* buffer_, off_t size, off_t offset
     size -= chunk_size;
     offset += chunk_size;
     bytes_read += chunk_size;
+    // lock_release(&inode->lock);
   }
   // free(bounce);
-
+  
   return bytes_read;
 }
 

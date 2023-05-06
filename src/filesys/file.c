@@ -58,10 +58,11 @@ struct inode* file_get_inode(struct file* file) {
    which may be less than SIZE if end of file is reached.
    Advances FILE's position by the number of bytes read. */
 off_t file_read(struct file* file, void* buffer, off_t size) {
-  lock_acquire(get_inode_lock(file->inode));
+  // lock_acquire(get_inode_lock(file->inode));
   off_t bytes_read = inode_read_at(file->inode, buffer, size, file->pos);
+  // lock_release(get_inode_lock(file->inode));
+
   file->pos += bytes_read;
-  lock_release(get_inode_lock(file->inode));
   return bytes_read;
 }
 
@@ -87,8 +88,9 @@ off_t file_read_at(struct file* file, void* buffer, off_t size, off_t file_ofs) 
 off_t file_write(struct file* file, const void* buffer, off_t size) {
   lock_acquire(get_inode_lock(file->inode));
   off_t bytes_written = inode_write_at(file->inode, buffer, size, file->pos);
-  file->pos += bytes_written;
   lock_release(get_inode_lock(file->inode));
+  file->pos += bytes_written;
+  
   return bytes_written;
 }
 

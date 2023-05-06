@@ -433,13 +433,15 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
      Otherwise, we'd need to verify that we didn't get a short
      read due to something intermittent such as low memory. */
 
-  lock_acquire(get_inode_lock(dir->inode));
+  
   
   for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e)
     if (!e.in_use)
       break;
 
   /* Write slot. */
+
+  lock_acquire(get_inode_lock(dir->inode));
   
   e.in_use = true;
   strlcpy(e.name, name, sizeof e.name);
