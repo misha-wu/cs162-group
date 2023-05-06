@@ -23,6 +23,11 @@ cache_block_t* check_cache(struct block* block, block_sector_t sector) {
     return NULL;
 }
 
+void cache_read_buffer(struct block* block, block_sector_t sector, const void* buffer) {
+    cache_block_t* cache_entry = cache_read(block, sector);
+    memcpy(buffer, cache_entry->contents, BLOCK_SECTOR_SIZE);
+}
+
 cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     cache_block_t* in_cache = check_cache(block, sector);
     
@@ -42,6 +47,7 @@ cache_block_t* cache_read(struct block* block, block_sector_t sector) {
 
     // TOOD ?? global lock or smth this is super sus
     lock_acquire(&global_cache_lock);
+    // PANIC("I am about to evict :(");
     for (int i = 0; i < 64; i++) {
         if (free_map[i]) {
             // printf("i is %d\n", i);

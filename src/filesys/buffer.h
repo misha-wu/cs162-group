@@ -32,6 +32,7 @@ extern int clock_index;
 cache_block_t* check_cache(struct block* block, block_sector_t sector);
 cache_block_t* cache_read(struct block* block, block_sector_t sector);
 void cache_write(struct block* block, block_sector_t sector, const void* buffer);
+void cache_read_buffer(struct block* block, block_sector_t sector, const void* buffer);
 uint8_t clock_algorithm(void);
 
 
