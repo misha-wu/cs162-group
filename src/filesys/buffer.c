@@ -28,6 +28,10 @@ void cache_read_buffer(struct block* block, block_sector_t sector, const void* b
     memcpy(buffer, cache_entry->contents, BLOCK_SECTOR_SIZE);
 }
 
+void* cache_read_ret(struct block* block, block_sector_t sector) {
+    return cache_read(block, sector)->contents;
+}
+
 cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     cache_block_t* in_cache = check_cache(block, sector);
     

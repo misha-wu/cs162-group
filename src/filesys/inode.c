@@ -79,19 +79,20 @@ int get_open_count(struct inode* inode) {
 }
 
 struct inode_disk* get_id(struct inode* inode) {
-  struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
-  // struct inode_disk* id;
-  if (id == NULL) {
-    return false; // ???
-  }
-  cache_read_buffer(fs_device, inode->sector, id);
-  return id;
+  // struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
+  // // struct inode_disk* id;
+  // if (id == NULL) {
+  //   return false; // ???
+  // }
+  // cache_read_buffer(fs_device, inode->sector, id);
+  // return id;
+  return (struct inode_disk*) cache_read_ret(fs_device, inode->sector);
 }
 
 bool get_is_dir(struct inode* inode) {
   struct inode_disk* id = get_id(inode);
   bool is_dir = id->is_dir;
-  free(id);
+  // free(id);
   return is_dir;
 }
 
@@ -233,23 +234,26 @@ block_sector_t get_sector(struct inode* inode) {
    POS. */
 static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   ASSERT(inode != NULL);
-  struct inode_disk* disk_inode = calloc(1, sizeof(struct inode_disk));
-  if (disk_inode == NULL) {
-    return -1;
-  }
+  // struct inode_disk* disk_inode = calloc(1, sizeof(struct inode_disk));
+  // if (disk_inode == NULL) {
+  //   return -1;
+  // }
 
   block_sector_t ret;
-  cache_read_buffer(fs_device, inode->sector, disk_inode);
+  // cache_read_buffer(fs_device, inode->sector, disk_inode);
+
+  struct inode_disk* disk_inode = (struct inode_disk*) cache_read_ret(fs_device, inode->sector);
   if (pos < 10 * BLOCK_SECTOR_SIZE) {
     ret = disk_inode->direct[pos / BLOCK_SECTOR_SIZE];
-    free(disk_inode);
+    // free(disk_inode);
     return ret;
   } else if (pos < 10 * BLOCK_SECTOR_SIZE + 128 * BLOCK_SECTOR_SIZE) {
-    block_sector_t buffer[128];
-    cache_read_buffer(fs_device, disk_inode->indirect, buffer);
+    // block_sector_t buffer[128];
+    // cache_read_buffer(fs_device, disk_inode->indirect, buffer);
+    block_sector_t* buffer = (block_sector_t*) cache_read_ret(fs_device, disk_inode->indirect);
     off_t relative_pos = pos - 10 * BLOCK_SECTOR_SIZE;
     ret = buffer[relative_pos / BLOCK_SECTOR_SIZE];
-    free(disk_inode);
+    // free(disk_inode);
     return ret;
   } else {
 
@@ -257,14 +261,16 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
 
     int num_pointers = BLOCK_SECTOR_SIZE / sizeof(block_sector_t);
 
-    block_sector_t buffer[128];
-    cache_read_buffer(fs_device, disk_inode->dbl_indirect, buffer);
+    // block_sector_t buffer[128];
+    // cache_read_buffer(fs_device, disk_inode->dbl_indirect, buffer);
+    block_sector_t* buffer = (block_sector_t*) cache_read_ret(fs_device, disk_inode->dbl_indirect);
     off_t relative_pos = pos - 10 * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE;
     off_t index_in_doubly = relative_pos / (num_pointers * BLOCK_SECTOR_SIZE);
-    cache_read_buffer(fs_device, buffer[index_in_doubly], buffer);
+    // cache_read_buffer(fs_device, buffer[index_in_doubly], buffer);
+    buffer = (block_sector_t*) cache_read_ret(fs_device, buffer[index_in_doubly]);
     off_t rel_rel_pos = pos - 10 * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE - index_in_doubly * num_pointers * BLOCK_SECTOR_SIZE;
     ret = buffer[rel_rel_pos / BLOCK_SECTOR_SIZE];
-    free(disk_inode);
+    // free(disk_inode);
     return ret;
   }
 
