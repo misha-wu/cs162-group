@@ -441,7 +441,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
 
   /* Write slot. */
 
-  lock_acquire(get_inode_lock(dir->inode));
+  // lock_acquire(get_inode_lock(dir->inode));
   
   e.in_use = true;
   strlcpy(e.name, name, sizeof e.name);
@@ -449,7 +449,7 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
 
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
   
-  lock_release(get_inode_lock(dir->inode));
+  // lock_release(get_inode_lock(dir->inode));
 
   // printf("have supposedly added this to the directory\n");
   lookup(dir, name, NULL, NULL);
@@ -501,14 +501,14 @@ bool dir_remove(struct dir* dir, const char* name) {
   }
 
   /* Erase directory entry. */
-  lock_acquire(get_inode_lock(dir->inode));
+  // lock_acquire(get_inode_lock(dir->inode));
 
   e.in_use = false;
   if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e) {
-    lock_release(get_inode_lock(dir->inode));
+    // lock_release(get_inode_lock(dir->inode));
     goto done;
   }
-  lock_release(get_inode_lock(dir->inode));
+  // lock_release(get_inode_lock(dir->inode));
 
   /* Remove inode. */
   // printf("i never thought there'd\n");
