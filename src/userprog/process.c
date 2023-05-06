@@ -441,7 +441,8 @@ bool load(const char* file_name, void (**eip)(void), void** esp) {
     printf("load: %s: open failed\n", file_name);
     goto done;
   }
-  file_deny_write(file);
+  // file_deny_write(file);
+  // LOL ???????? claire's vestigial code that's like your evolutionized appendix :(
 
   /* Read and verify executable header. */
   if (file_read(file, &ehdr, sizeof ehdr) != sizeof ehdr ||

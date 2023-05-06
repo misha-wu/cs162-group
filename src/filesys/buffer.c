@@ -2,7 +2,7 @@
 
 struct cache_block* cache[64];
 struct lock global_cache_lock;
-bool free_map[64];
+bool free_cache_map[64];
 int clock_index;
 
 cache_block_t* check_cache(struct block* block, block_sector_t sector) {
@@ -49,10 +49,10 @@ cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     lock_acquire(&global_cache_lock);
     // PANIC("I am about to evict :(");
     for (int i = 0; i < 64; i++) {
-        if (free_map[i]) {
+        if (free_cache_map[i]) {
             // printf("i is %d\n", i);
             // TODO do some locking
-            free_map[i] = false;
+            free_cache_map[i] = false;
             cache[i] = cache_block;
             // TODO do some unlocking
             lock_release(&global_cache_lock);

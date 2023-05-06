@@ -2,6 +2,7 @@
 #include <debug.h>
 #include "filesys/inode.h"
 #include "threads/malloc.h"
+#include "filesys/buffer.h"
 
 /* An open file. */
 struct file {
@@ -9,6 +10,7 @@ struct file {
   off_t pos;           /* Current position. */
   bool deny_write;     /* Has file_deny_write() been called? */
   struct dir* parent_dir;
+  // struct lock metadata_lock; // copium :(
 };
 
 /* Opens a file for the given INODE, of which it takes ownership,
@@ -16,7 +18,9 @@ struct file {
    allocation fails or if INODE is null. */
 struct file* file_open(struct inode* inode) {
   struct file* file = calloc(1, sizeof *file);
+  
   if (inode != NULL && file != NULL) {
+    // lock_init(&file->metadata_lock);
     file->inode = inode;
     file->pos = 0;
     file->deny_write = false;
@@ -65,7 +69,10 @@ off_t file_read(struct file* file, void* buffer, off_t size) {
    which may be less than SIZE if end of file is reached.
    The file's current position is unaffected. */
 off_t file_read_at(struct file* file, void* buffer, off_t size, off_t file_ofs) {
-  return inode_read_at(file->inode, buffer, size, file_ofs);
+  lock_acquire(get_inode_lock(file->inode));
+  off_t ret = inode_read_at(file->inode, buffer, size, file_ofs);
+  lock_release(get_inode_lock(file->inode));
+  return ret;
 }
 
 /* Writes SIZE bytes from BUFFER into FILE,
@@ -89,17 +96,22 @@ off_t file_write(struct file* file, const void* buffer, off_t size) {
    not yet implemented.)
    The file's current position is unaffected. */
 off_t file_write_at(struct file* file, const void* buffer, off_t size, off_t file_ofs) {
-  return inode_write_at(file->inode, buffer, size, file_ofs);
+  lock_acquire(get_inode_lock(file->inode));
+  off_t ret = inode_write_at(file->inode, buffer, size, file_ofs);
+  lock_release(get_inode_lock(file->inode));
+  return ret;
 }
 
 /* Prevents write operations on FILE's underlying inode
    until file_allow_write() is called or FILE is closed. */
 void file_deny_write(struct file* file) {
   ASSERT(file != NULL);
+  lock_acquire(get_inode_lock(file->inode));
   if (!file->deny_write) {
     file->deny_write = true;
     inode_deny_write(file->inode);
   }
+  lock_release(get_inode_lock(file->inode));
 }
 
 /* Re-enables write operations on FILE's underlying inode.

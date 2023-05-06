@@ -26,7 +26,7 @@ typedef struct cache_block {
 // our cache is a 64-array of cache_block pointers
 extern struct cache_block* cache[64];
 extern struct lock global_cache_lock;
-extern bool free_map[64];
+extern bool free_cache_map[64];
 extern int clock_index;
 
 cache_block_t* check_cache(struct block* block, block_sector_t sector);
