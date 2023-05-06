@@ -15,7 +15,7 @@
 #include "filesys/inode.h"
 
 // global file system lock
-// struct lock global_file_lock;
+struct lock global_file_lock;
 
 static void syscall_handler(struct intr_frame*);
 
@@ -42,7 +42,7 @@ static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { 
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); 
-  // lock_init(&global_file_lock);
+  lock_init(&global_file_lock);
   }
 
 // helper function to get pcb of current process
@@ -273,46 +273,46 @@ int write (int fd, const void *buffer, unsigned size) {
 
 // seek syscall
 void seek(int fd, unsigned position) {
-  // lock_acquire(&global_file_lock);
+  lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return;
   }
   // struct file* file = process_current()->fd_table[fd];
   // file_seek(file, position);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return -1;
   }
   file_seek(fde->file, position);
-  // lock_release(&global_file_lock);
+  lock_release(&global_file_lock);
 }
 
 // tell syscall
 unsigned tell(int fd) {
-  // lock_acquire(&global_file_lock);
+  lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return -1;
   }
   // struct file* my_file = process_current()->fd_table[fd];
   // off_t ret = file_tell(my_file);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return -1;
   }
   off_t ret = file_tell(fde->file);
-  // lock_release(&global_file_lock);
+  lock_release(&global_file_lock);
   return ret;
 }
 
 // close syscall
 void close(int fd) {
-  // lock_acquire(&global_file_lock);
+  lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
   } else {
     // struct file* file = process_current()->fd_table[fd];
     // file_close(file);
@@ -327,7 +327,7 @@ void close(int fd) {
 
     // mark that a fd has been closed by setting it to null
     process_current()->fd_table[fd] = NULL;
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
   }
 }
 
@@ -513,19 +513,19 @@ bool chdir(const char* dir) {
 
 bool readdir(int fd, char* name) {
   // printf("hi in readdir\n");
-  // lock_acquire(&global_file_lock);
+  lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return false;
   }
   struct process* p = process_current();
   struct fd_entry* fde = p->fd_table[fd];
   if (!fde->is_dir) {
     // printf("not a directory\n");
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return false;
   }
-  // lock_release(&global_file_lock);
+  lock_release(&global_file_lock);
   // printf("hi2\n");
   bool success = dir_readdir(fde->dir, name);
   // printf("success %d\n", success);
@@ -534,9 +534,9 @@ bool readdir(int fd, char* name) {
 }
 
 int inumber(int fd) {
-  // lock_acquire(&global_file_lock);
+  lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return -1;
   }
   struct fd_entry* fde = process_current()->fd_table[fd];
@@ -547,19 +547,19 @@ int inumber(int fd) {
     inode = dir_get_inode(fde->dir);
   }
   // struct inode* inode = process_current()->fd_table[fd]->inode;
-  // lock_release(&global_file_lock);
+  lock_release(&global_file_lock);
   return inode_get_inumber(inode);
 }
 
 bool isdir(int fd) {
-  // lock_acquire(&global_file_lock);
+  lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
+    lock_release(&global_file_lock);
     return false;
   }
   struct fd_entry* fde = process_current()->fd_table[fd];
   bool isdir = fde->is_dir;
-  // lock_release(&global_file_lock);
+  lock_release(&global_file_lock);
   return isdir;
 }
 

@@ -58,8 +58,10 @@ struct inode* file_get_inode(struct file* file) {
    which may be less than SIZE if end of file is reached.
    Advances FILE's position by the number of bytes read. */
 off_t file_read(struct file* file, void* buffer, off_t size) {
+  lock_acquire(get_inode_lock(file->inode));
   off_t bytes_read = inode_read_at(file->inode, buffer, size, file->pos);
   file->pos += bytes_read;
+  lock_release(get_inode_lock(file->inode));
   return bytes_read;
 }
 
@@ -69,9 +71,9 @@ off_t file_read(struct file* file, void* buffer, off_t size) {
    which may be less than SIZE if end of file is reached.
    The file's current position is unaffected. */
 off_t file_read_at(struct file* file, void* buffer, off_t size, off_t file_ofs) {
-  lock_acquire(get_inode_lock(file->inode));
+  // lock_acquire(get_inode_lock(file->inode));
   off_t ret = inode_read_at(file->inode, buffer, size, file_ofs);
-  lock_release(get_inode_lock(file->inode));
+  // lock_release(get_inode_lock(file->inode));
   return ret;
 }
 
@@ -83,8 +85,10 @@ off_t file_read_at(struct file* file, void* buffer, off_t size, off_t file_ofs) 
    not yet implemented.)
    Advances FILE's position by the number of bytes read. */
 off_t file_write(struct file* file, const void* buffer, off_t size) {
+  lock_acquire(get_inode_lock(file->inode));
   off_t bytes_written = inode_write_at(file->inode, buffer, size, file->pos);
   file->pos += bytes_written;
+  lock_release(get_inode_lock(file->inode));
   return bytes_written;
 }
 
@@ -96,9 +100,9 @@ off_t file_write(struct file* file, const void* buffer, off_t size) {
    not yet implemented.)
    The file's current position is unaffected. */
 off_t file_write_at(struct file* file, const void* buffer, off_t size, off_t file_ofs) {
-  lock_acquire(get_inode_lock(file->inode));
+  // lock_acquire(get_inode_lock(file->inode));
   off_t ret = inode_write_at(file->inode, buffer, size, file_ofs);
-  lock_release(get_inode_lock(file->inode));
+  // lock_release(get_inode_lock(file->inode));
   return ret;
 }
 
