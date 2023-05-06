@@ -273,46 +273,46 @@ int write (int fd, const void *buffer, unsigned size) {
 
 // seek syscall
 void seek(int fd, unsigned position) {
-  lock_acquire(&global_file_lock);
+  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return;
   }
   // struct file* file = process_current()->fd_table[fd];
   // file_seek(file, position);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return -1;
   }
   file_seek(fde->file, position);
-  lock_release(&global_file_lock);
+  // lock_release(&global_file_lock);
 }
 
 // tell syscall
 unsigned tell(int fd) {
-  lock_acquire(&global_file_lock);
+  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return -1;
   }
   // struct file* my_file = process_current()->fd_table[fd];
   // off_t ret = file_tell(my_file);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return -1;
   }
   off_t ret = file_tell(fde->file);
-  lock_release(&global_file_lock);
+  // lock_release(&global_file_lock);
   return ret;
 }
 
 // close syscall
 void close(int fd) {
-  lock_acquire(&global_file_lock);
+  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
   } else {
     // struct file* file = process_current()->fd_table[fd];
     // file_close(file);
@@ -327,7 +327,7 @@ void close(int fd) {
 
     // mark that a fd has been closed by setting it to null
     process_current()->fd_table[fd] = NULL;
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
   }
 }
 
@@ -339,116 +339,10 @@ double compute_e (int n) {
   return sys_sum_to_e(n);
 }
 
-
-// /* Extracts a file name part from *SRCP into PART, and updates *SRCP so that the
-//    next call will return the next file name part. Returns 1 if successful, 0 at
-//    end of string, -1 for a too-long file name part. */
-// static int get_next_part(char part[NAME_MAX + 1], const char** srcp) {
-//   const char* src = *srcp;
-//   char* dst = part;
-
-//   /* Skip leading slashes.  If it's all slashes, we're done. */
-//   while (*src == '/')
-//     src++;
-//   if (*src == '\0')
-//     return 0;
-
-//   /* Copy up to NAME_MAX character from SRC to DST.  Add null terminator. */
-//   while (*src != '/' && *src != '\0') {
-//     if (dst < part + NAME_MAX)
-//       *dst++ = *src;
-//     else
-//       return -1;
-//     src++;
-//   }
-//   *dst = '\0';
-
-//   /* Advance source pointer. */
-//   *srcp = src;
-//   return 1;
-// }
-
-// static int get_last_part(char part[NAME_MAX + 1], const char** srcp) {
-//   int status;
-//   while (status = get_next_part(part, srcp) == 1);
-//   return status;
-// }
-
-// struct fd_entry* path_resolution_not_funsies(const char* filename, struct dir* cwd, bool last_should_exist) {
-//   printf("asldfjkalskdfjalskdfjalds");
-//   struct dir* curr_dir;
-//   if (filename[0] != '/') {
-//     printf("wgat");
-//     curr_dir = dir_open_root();
-//   } else {
-//     printf("should use cwd\n");
-//     curr_dir = dir_reopen(cwd);
-//   }
-//   if (curr_dir == NULL) {
-//     return NULL;
-//   }
-//   char part[NAME_MAX + 1];
-//   bool was_file;
-//   int status = get_next_part(part, &filename);
-//   while (true) {
-    
-//     if (status == 0) {
-//       break;
-//     }
-//     if (status == -1) {
-//       return NULL;
-//     }
-//     struct inode* inode;
-//     status = get_next_part(part, &filename);
-//     bool found = dir_lookup(curr_dir, part, &inode);
-//     if (!found) {
-//       if (status == 0 && !last_should_exist) {
-//         struct fd_entry* fde = calloc(1, sizeof(struct fd_entry));
-//         fde->is_dir = true;
-//         fde->file = NULL;
-//         fde->dir = curr_dir;
-//         // // struct inode* help = curr_dir->inode;
-//         // close(curr_dir);
-//         // return help;
-//       }
-//       return NULL;
-//     }
-    
-//     bool is_dir = get_is_dir(inode);
-//     dir_close(curr_dir);
-//     if (status == 0) {
-//       return inode;
-//     }
-//     if (is_dir) {
-//       curr_dir = dir_open(inode);
-//     }
-//   }
-//   dir_close(curr_dir);
-//   return NULL;
-
-// }
-
-
 bool mkdir(const char* dir) {
   // printf("lskfjlakjsdflja\n");
   struct dir* cwd = get_cwd();
-  // printf("in mkdir my cwd has inode %x", get_dir_inode(cwd));
-  // // printf("cwd????\n");
-  // // printf("dir is %x\n", dir);
-  // // printf("dir[0] is %c\n", dir[0]);
-  // // path_resolution_funsies(dir, cwd, true);
-  // if (path_resolution_funsies(dir, cwd, true) != NULL) {
-  //   return false;
-  // }
-  // printf("1\n");
-  // struct inode* inode = path_resolution_funsies(dir, cwd, false);
-  // if (inode == NULL) {
-  //   return false;
-  // }
   char last_part[NAME_MAX + 1];
-  // char* diced = dice_and_slice(dir);
-  // struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
-  // get_last_part(last_part, &dir);
   struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
   // free(diced);
   if (directory == NULL) {
@@ -463,36 +357,16 @@ bool mkdir(const char* dir) {
   // dir_create(sector, 16);
   wo_de_dir_create(sector, 16, cwd);
   dir_close(cwd);
-  // printf("3\n");
-  // // struct dir* directory = dir_open(inode);
-  // printf("4\n");
-  // char last_part[NAME_MAX + 1];
-  // int status = get_last_part(last_part, &dir);
-  // if (status == -1) {
-  //   return false;
-  // }
-  // printf("5\n");
   if (!dir_add(directory, last_part, sector)) {
     dir_close(directory);
     // printf("dir add failed :(\n");
     return false;
   }
   dir_close(directory);
-  // get_cwd();
-  // printf("i hate this\n");
   return true;
 }
 
 bool chdir(const char* dir) {
-  // // struct inode* inode = NULL;
-  // bool found = dir_lookup(dir_open_root(), "a", &inode);
-  // printf("found a");
-  // struct dir* a = dir_open(inode);
-  // found = dir_lookup(a, "b", &inode);
-  // printf("found b");
-
-
-
   struct inode* inode = NULL;
   struct dir* cwd = get_cwd();
   char* scuffed = malloc(strlen(dir) + 3);
@@ -513,19 +387,19 @@ bool chdir(const char* dir) {
 
 bool readdir(int fd, char* name) {
   // printf("hi in readdir\n");
-  lock_acquire(&global_file_lock);
+  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return false;
   }
   struct process* p = process_current();
   struct fd_entry* fde = p->fd_table[fd];
   if (!fde->is_dir) {
     // printf("not a directory\n");
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return false;
   }
-  lock_release(&global_file_lock);
+  // lock_release(&global_file_lock);
   // printf("hi2\n");
   bool success = dir_readdir(fde->dir, name);
   // printf("success %d\n", success);
@@ -534,9 +408,9 @@ bool readdir(int fd, char* name) {
 }
 
 int inumber(int fd) {
-  lock_acquire(&global_file_lock);
+  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return -1;
   }
   struct fd_entry* fde = process_current()->fd_table[fd];
@@ -547,19 +421,19 @@ int inumber(int fd) {
     inode = dir_get_inode(fde->dir);
   }
   // struct inode* inode = process_current()->fd_table[fd]->inode;
-  lock_release(&global_file_lock);
+  // lock_release(&global_file_lock);
   return inode_get_inumber(inode);
 }
 
 bool isdir(int fd) {
-  lock_acquire(&global_file_lock);
+  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    lock_release(&global_file_lock);
+    // lock_release(&global_file_lock);
     return false;
   }
   struct fd_entry* fde = process_current()->fd_table[fd];
   bool isdir = fde->is_dir;
-  lock_release(&global_file_lock);
+  // lock_release(&global_file_lock);
   return isdir;
 }
 
