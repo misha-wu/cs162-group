@@ -323,17 +323,24 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     return true;
   }
   
-  block_sector_t buffer[128];
-  memset(buffer, 0, 512);
+  // block_sector_t buffer[128];
+  // memset(buffer, 0, 512);
+  
   if (id->indirect == 0) {
     if (!free_map_allocate(1, &id->indirect)) {
       // lock_release(&id->lock);
       inode_resize(id, 0);
       return false;
     }
-  } else {
-    cache_read_buffer(fs_device, id->indirect, buffer);
+    // block_sector_t stack_buffer[128];
+    // memset(stack_buffer, 0, 512);
+    // buffer = &stack_buffer;
+  // } else {
+  //   cache_read_buffer(fs_device, id->indirect, buffer);
+  //   // buffer = cache_read_ret(fs_device, id->indirect);
   }
+
+  block_sector_t* buffer = cache_read_ret(fs_device, id->indirect);
 
   // printf("created/read an indirect\n");
 
@@ -365,17 +372,19 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     return true;
   }
   
-  block_sector_t dbl_buffer[128];
-  memset(dbl_buffer, 0, 512);
+  // block_sector_t dbl_buffer[128];
+  // memset(dbl_buffer, 0, 512);
   if (id->dbl_indirect == 0) {
     if (!free_map_allocate(1, &id->dbl_indirect)) {
       // lock_release(&id->lock);
       inode_resize(id, 0);
       return false;
     }
-  } else {
-    cache_read_buffer(fs_device, id->dbl_indirect, dbl_buffer);
+  // } else {
+  //   cache_read_buffer(fs_device, id->dbl_indirect, dbl_buffer);
   }
+  block_sector_t* dbl_buffer = cache_read_ret(fs_device, id->dbl_indirect);
+
   for (int i = 0; i < 128; i++) {
     // fix the shrink
     // if (size <= (10 + 128 + (i + 1) * 128) * BLOCK_SECTOR_SIZE && dbl_buffer[i] != 0) {
@@ -399,9 +408,10 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     // } else 
     if (size <= (10 + 128 + (i + 1) * 128) * BLOCK_SECTOR_SIZE && dbl_buffer[i] != 0) {
       // shrink (do not need the whole double block)
-       block_sector_t sgl_buffer[128];
-      memset(sgl_buffer, 0, 512);
-      cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
+      //  block_sector_t sgl_buffer[128];
+      // memset(sgl_buffer, 0, 512);
+      // cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
+      block_sector_t* sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
       for (int j = 0; j < 128; j++) {
         if (size <= (10 + 128 + i * 128 + j) * BLOCK_SECTOR_SIZE && sgl_buffer[j] != 0) {
           free_map_release(sgl_buffer[j], 1);
@@ -418,17 +428,19 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     
     if (size > (10 + 128 + i * 128) * BLOCK_SECTOR_SIZE) {
       // grow, kinda sus check
-      block_sector_t sgl_buffer[128];
-      memset(sgl_buffer, 0, 512);
+      // block_sector_t sgl_buffer[128];
+      // memset(sgl_buffer, 0, 512);
       if (dbl_buffer[i] == 0) {
         if (!free_map_allocate(1, &dbl_buffer[i])) {
           // lock_release(&id->lock);
           inode_resize(id, 0);
           return false;
         }
-      } else {
-        cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
+      // } else {
+      //   cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
       }
+
+      block_sector_t* sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
 
       // seems okay on initial check???
       for (int j = 0; j < 128; j++) {
