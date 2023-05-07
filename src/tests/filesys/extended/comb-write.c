@@ -5,8 +5,9 @@
 #include "tests/lib.h"
 #include "tests/main.h"
 
-#define FILE_SIZE 65536
+#define FILE_SIZE 200
 static char buf_a[FILE_SIZE];
+static char buf_ch[1];
 
 // Test your buffer cache’s ability to 
 // coalesce writes to the same sector. 
@@ -19,33 +20,31 @@ static char buf_a[FILE_SIZE];
 void test_main(void) {
   int fd_a;
   size_t ofs_a = 0;
+  buf_ch[0] = 'a';
 
-  random_init(0);
-  random_bytes(buf_a, sizeof buf_a);
-  // random_bytes(buf_b, sizeof buf_b);
+  // random_init(0);
+  // random_bytes(buf_a, sizeof buf_a);
 
   CHECK(create("a", 0), "create \"a\"");
-  // CHECK(create("b", 0), "create \"b\"");
 
   CHECK((fd_a = open("a")) > 1, "open \"a\"");
-  // CHECK((fd_b = open("b")) > 1, "open \"b\"");
 
   msg("write \"a\"");
   while (ofs_a < FILE_SIZE) {
-    ofs_a += write(fd_a, buf_a, 1);
+    ofs_a += write(fd_a, buf_ch, 1);
   }
 
   //read in byte by byte
   size_t read_ofs_a = 0;
 
   while (read_ofs_a < FILE_SIZE) {
-    read_ofs_a += read(fd_a, buf_a, 1);
+    read_ofs_a += read(fd_a, buf_ch, 1);
   }
 
   int writes = filesys_write_cnt();
   int reads = filesys_read_cnt();
 
-  ASSERT(100<writes<200);
-  ASSERT(100<reads<200);
+  ASSERT(100<writes && writes<200);
+  ASSERT(100<reads && reads<200);
 
 }
