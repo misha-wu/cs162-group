@@ -32,6 +32,12 @@ void* cache_read_ret(struct block* block, block_sector_t sector) {
     return cache_read(block, sector)->contents;
 }
 
+cache_block_t* cache_read_new(struct block* block, block_sector_t sector) {
+    cache_block_t* cache_block = cache_read(block, sector);
+    memset(&cache_block->contents, 0, BLOCK_SECTOR_SIZE);
+    return cache_block;
+}
+
 cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     cache_block_t* in_cache = check_cache(block, sector);
     

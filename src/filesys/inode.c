@@ -13,19 +13,20 @@
 
 /* Identifies an inode. */
 #define INODE_MAGIC 0x494e4f44
+#define NUM_DIRECT 10
 
 /* On-disk inode.
    Must be exactly BLOCK_SECTOR_SIZE bytes long. */
 struct inode_disk {
   // block_sector_t start; /* First data sector. */
-  block_sector_t direct[10]; // direct pointers
+  block_sector_t direct[NUM_DIRECT]; // direct pointers
   block_sector_t indirect; // indirect pointers
   block_sector_t dbl_indirect; // doubly indirect pointer
-  struct lock lock;
+  // struct lock lock;
   bool is_dir;
   off_t length;         /* File size in bytes. */
   unsigned magic;       /* Magic number. */
-  uint32_t unused[107]; /* Not used. */
+  uint32_t unused[113]; /* Not used. */
 };
 
 /* Returns the number of sectors to allocate for an inode SIZE
@@ -243,15 +244,15 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
   // cache_read_buffer(fs_device, inode->sector, disk_inode);
 
   struct inode_disk* disk_inode = (struct inode_disk*) cache_read_ret(fs_device, inode->sector);
-  if (pos < 10 * BLOCK_SECTOR_SIZE) {
+  if (pos < NUM_DIRECT * BLOCK_SECTOR_SIZE) {
     ret = disk_inode->direct[pos / BLOCK_SECTOR_SIZE];
     // free(disk_inode);
     return ret;
-  } else if (pos < 10 * BLOCK_SECTOR_SIZE + 128 * BLOCK_SECTOR_SIZE) {
+  } else if (pos < NUM_DIRECT * BLOCK_SECTOR_SIZE + 128 * BLOCK_SECTOR_SIZE) {
     // block_sector_t buffer[128];
     // cache_read_buffer(fs_device, disk_inode->indirect, buffer);
     block_sector_t* buffer = (block_sector_t*) cache_read_ret(fs_device, disk_inode->indirect);
-    off_t relative_pos = pos - 10 * BLOCK_SECTOR_SIZE;
+    off_t relative_pos = pos - NUM_DIRECT * BLOCK_SECTOR_SIZE;
     ret = buffer[relative_pos / BLOCK_SECTOR_SIZE];
     // free(disk_inode);
     return ret;
@@ -264,11 +265,11 @@ static block_sector_t byte_to_sector(const struct inode* inode, off_t pos) {
     // block_sector_t buffer[128];
     // cache_read_buffer(fs_device, disk_inode->dbl_indirect, buffer);
     block_sector_t* buffer = (block_sector_t*) cache_read_ret(fs_device, disk_inode->dbl_indirect);
-    off_t relative_pos = pos - 10 * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE;
+    off_t relative_pos = pos - NUM_DIRECT * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE;
     off_t index_in_doubly = relative_pos / (num_pointers * BLOCK_SECTOR_SIZE);
     // cache_read_buffer(fs_device, buffer[index_in_doubly], buffer);
     buffer = (block_sector_t*) cache_read_ret(fs_device, buffer[index_in_doubly]);
-    off_t rel_rel_pos = pos - 10 * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE - index_in_doubly * num_pointers * BLOCK_SECTOR_SIZE;
+    off_t rel_rel_pos = pos - NUM_DIRECT * BLOCK_SECTOR_SIZE - 128 * BLOCK_SECTOR_SIZE - index_in_doubly * num_pointers * BLOCK_SECTOR_SIZE;
     ret = buffer[rel_rel_pos / BLOCK_SECTOR_SIZE];
     // free(disk_inode);
     return ret;
@@ -302,7 +303,7 @@ void inode_init(void) {
 bool inode_resize(struct inode_disk* id, off_t size) {
   // lock_acquire(&id->lock);
 
-  for (int i = 0; i < 10; i++) {
+  for (int i = 0; i < NUM_DIRECT; i++) {
     if (size <= BLOCK_SECTOR_SIZE * i && id->direct[i] != 0) {
       free_map_release(id->direct[i], 1);
       id->direct[i] = 0;
@@ -317,7 +318,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
 
   // printf("did directs\n");
   
-  if (id->indirect == 0 && size <= 10 * BLOCK_SECTOR_SIZE) {
+  if (id->indirect == 0 && size <= NUM_DIRECT * BLOCK_SECTOR_SIZE) {
     // id->length = size;
     // lock_release(&id->lock);
     return true;
@@ -325,6 +326,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
   
   // block_sector_t buffer[128];
   // memset(buffer, 0, 512);
+  block_sector_t* buffer;
   
   if (id->indirect == 0) {
     if (!free_map_allocate(1, &id->indirect)) {
@@ -335,21 +337,33 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     // block_sector_t stack_buffer[128];
     // memset(stack_buffer, 0, 512);
     // buffer = &stack_buffer;
-  // } else {
-  //   cache_read_buffer(fs_device, id->indirect, buffer);
-  //   // buffer = cache_read_ret(fs_device, id->indirect);
+
+    // buffer = cache_read_new(fs_device, id->indirect);
+    buffer = calloc(1, BLOCK_SECTOR_SIZE);
+  } else {
+    // cache_read_buffer(fs_device, id->indirect, buffer);
+    buffer = cache_read_ret(fs_device, id->indirect);
   }
 
-  block_sector_t* buffer = cache_read_ret(fs_device, id->indirect);
+  // block_sector_t* buffer = cache_read_ret(fs_device, id->indirect);
 
   // printf("created/read an indirect\n");
 
   for (int i = 0; i < 128; i++) {
-    if (size <= (10 + i) * BLOCK_SECTOR_SIZE && buffer[i] != 0) {
+    // if (buffer[i] > 1500) {
+    //     PANIC("big sector %d, i is %d, id->indirect is %d, size is %d, buffer[0] %d, buffer[1] %d, buffer[2] %d, buffer[3] %d, buffer[4] %d, buffer[5] %d", buffer[i], i, id->indirect, size, buffer[0], buffer[1], buffer[2], buffer[3], buffer[4], buffer[5]);
+    //   }
+    if (size <= (NUM_DIRECT + i) * BLOCK_SECTOR_SIZE && buffer[i] != 0) {
+      // if (buffer[i] > 1500) {
+      //   PANIC("big sector %d, i is %d, id->indirect is %d", buffer[i], i, id->indirect);
+      // }
       free_map_release(buffer[i], 1);
       buffer[i] = 0;
-    } else if (size > (10 + i) * BLOCK_SECTOR_SIZE && buffer[i] == 0) {
+    } else if (size > (NUM_DIRECT + i) * BLOCK_SECTOR_SIZE && buffer[i] == 0) {
       if (!free_map_allocate(1, &buffer[i])) {
+        // if (id->indirect == 375 && i == 1) {
+        //   PANIC("set buffer[1] to %d", buffer[i]);
+        // }
         // lock_release(&id->lock);
         inode_resize(id, 0);
         return false;
@@ -357,7 +371,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     }
   }
 
-  if (size <= 10 * BLOCK_SECTOR_SIZE) {
+  if (size <= NUM_DIRECT * BLOCK_SECTOR_SIZE) {
     free_map_release(id->indirect, 1);
     id->indirect = 0;
   } else {
@@ -366,7 +380,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
 
   // printf("dealt with indirects\n");
   
-  if (id->dbl_indirect == 0 && size <= (10 + 128) * BLOCK_SECTOR_SIZE) {
+  if (id->dbl_indirect == 0 && size <= (NUM_DIRECT + 128) * BLOCK_SECTOR_SIZE) {
     // id->length = size;
     // lock_release(&id->lock);
     return true;
@@ -374,16 +388,20 @@ bool inode_resize(struct inode_disk* id, off_t size) {
   
   // block_sector_t dbl_buffer[128];
   // memset(dbl_buffer, 0, 512);
+  block_sector_t* dbl_buffer;
   if (id->dbl_indirect == 0) {
     if (!free_map_allocate(1, &id->dbl_indirect)) {
       // lock_release(&id->lock);
       inode_resize(id, 0);
       return false;
     }
-  // } else {
-  //   cache_read_buffer(fs_device, id->dbl_indirect, dbl_buffer);
+    // dbl_buffer = cache_read_new(fs_device, id->dbl_indirect);
+    dbl_buffer = calloc(1, BLOCK_SECTOR_SIZE);
+  } else {
+    // cache_read_buffer(fs_device, id->dbl_indirect, dbl_buffer);
+    dbl_buffer = cache_read_ret(fs_device, id->dbl_indirect);
   }
-  block_sector_t* dbl_buffer = cache_read_ret(fs_device, id->dbl_indirect);
+  // block_sector_t* dbl_buffer = cache_read_ret(fs_device, id->dbl_indirect);
 
   for (int i = 0; i < 128; i++) {
     // fix the shrink
@@ -406,19 +424,20 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     //   }
     // // } else if (size > (10 + 128 + i * 128 * 128) * BLOCK_SECTOR_SIZE) {
     // } else 
-    if (size <= (10 + 128 + (i + 1) * 128) * BLOCK_SECTOR_SIZE && dbl_buffer[i] != 0) {
+    if (size <= (NUM_DIRECT + 128 + (i + 1) * 128) * BLOCK_SECTOR_SIZE && dbl_buffer[i] != 0) {
       // shrink (do not need the whole double block)
+      // block_sector_t* sgl_buffer;
       //  block_sector_t sgl_buffer[128];
       // memset(sgl_buffer, 0, 512);
       // cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
       block_sector_t* sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
       for (int j = 0; j < 128; j++) {
-        if (size <= (10 + 128 + i * 128 + j) * BLOCK_SECTOR_SIZE && sgl_buffer[j] != 0) {
+        if (size <= (NUM_DIRECT + 128 + i * 128 + j) * BLOCK_SECTOR_SIZE && sgl_buffer[j] != 0) {
           free_map_release(sgl_buffer[j], 1);
           sgl_buffer[j] = 0;
         }
       }
-      if (size <= (10 + 128 + i * 128)) { // did not need block at all
+      if (size <= (NUM_DIRECT + 128 + i * 128)) { // did not need block at all
         free_map_release(dbl_buffer[i], 1);
         dbl_buffer[i] = 0;
       } else {
@@ -426,8 +445,9 @@ bool inode_resize(struct inode_disk* id, off_t size) {
       }
     }
     
-    if (size > (10 + 128 + i * 128) * BLOCK_SECTOR_SIZE) {
+    if (size > (NUM_DIRECT + 128 + i * 128) * BLOCK_SECTOR_SIZE) {
       // grow, kinda sus check
+      block_sector_t* sgl_buffer;
       // block_sector_t sgl_buffer[128];
       // memset(sgl_buffer, 0, 512);
       if (dbl_buffer[i] == 0) {
@@ -436,15 +456,18 @@ bool inode_resize(struct inode_disk* id, off_t size) {
           inode_resize(id, 0);
           return false;
         }
-      // } else {
-      //   cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
+        // sgl_buffer = cache_read_new(fs_device, dbl_buffer[i]);
+        sgl_buffer = calloc(1, BLOCK_SECTOR_SIZE);
+      } else {
+        // cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
+        sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
       }
 
-      block_sector_t* sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
+      // block_sector_t* sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
 
       // seems okay on initial check???
       for (int j = 0; j < 128; j++) {
-        if (size > (10 + 128 + i * 128 + j) * BLOCK_SECTOR_SIZE && sgl_buffer[j] == 0) {
+        if (size > (NUM_DIRECT + 128 + i * 128 + j) * BLOCK_SECTOR_SIZE && sgl_buffer[j] == 0) {
           // printf("allocated double pointer i: %d, and single pointer j: %d\n", i, j);
         // if (size > (10 + 128 + i * 128 * 128 + j * 128) * BLOCK_SECTOR_SIZE && sgl_buffer[j] == 0) {
           if (!free_map_allocate(1, &sgl_buffer[j])) {
@@ -459,7 +482,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     }
   }
   
-  if (size <= (10 + 128) * BLOCK_SECTOR_SIZE) {
+  if (size <= (NUM_DIRECT + 128) * BLOCK_SECTOR_SIZE) {
     free_map_release(id->dbl_indirect, 1);
     id->dbl_indirect = 0;
   } else {

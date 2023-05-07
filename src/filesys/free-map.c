@@ -43,6 +43,9 @@ bool free_map_allocate(size_t cnt, block_sector_t* sectorp) {
 
 /* Makes CNT sectors starting at SECTOR available for use. */
 void free_map_release(block_sector_t sector, size_t cnt) {
+  // if (sector > 1500) {
+  //   PANIC("big sector %d", sector);
+  // }
   ASSERT(bitmap_all(free_map, sector, cnt));
   lock_acquire(&free_map_lock);
   bitmap_set_multiple(free_map, sector, cnt, false);
