@@ -71,6 +71,11 @@ void halt(void) {
   NOT_REACHED();
 }
 
+void flush_cache(void) {
+  syscall0(SYS_FLUSH);
+  // NOT_REACHED();
+}
+
 void exit(int status) {
   syscall1(SYS_EXIT, status);
   NOT_REACHED();
@@ -115,6 +120,11 @@ bool readdir(int fd, char name[READDIR_MAX_LEN + 1]) { return syscall2(SYS_READD
 bool isdir(int fd) { return syscall1(SYS_ISDIR, fd); }
 
 int inumber(int fd) { return syscall1(SYS_INUMBER, fd); }
+
+int get_cache_accesses() { return syscall0(SYS_ACCESSNUM); }
+
+int get_cache_hits() { return syscall0(SYS_HITNUM); }
+
 
 double compute_e(int n) { return (double)syscall1f(SYS_COMPUTE_E, n); }
 

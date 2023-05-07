@@ -49,6 +49,8 @@ struct inode {
 void cache_init() {
   // start: wo de buffer cache code 
   lock_init(&global_cache_lock);
+  total_cache_accesses = 0;
+  total_cache_hits = 0;
   // free_map = malloc(64 * sizeof(bool));
   for (int i = 0; i < 64; i++) {
     free_cache_map[i] = true;
@@ -60,6 +62,10 @@ void cache_init() {
 }
 
 void cache_flush() {
+  total_cache_accesses = 0;
+  total_cache_hits = 0;
+  clock_index = 0;
+
   for (int i = 0; i < 64; i++) {
     if (cache[i] == NULL) {
       continue;
@@ -68,7 +74,14 @@ void cache_flush() {
       block_write(cache[i]->block, cache[i]->sector, cache[i]->contents);
     }
     free(cache[i]);
+    cache[i] = NULL;
   }
+
+  for (int i = 0; i < 64; i++) {
+    free_cache_map[i] = true;
+  }
+
+  // free_map_close(); 
 }
 
 struct lock* get_inode_lock(struct inode* inode) {

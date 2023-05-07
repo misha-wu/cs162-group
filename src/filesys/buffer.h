@@ -28,6 +28,8 @@ extern struct cache_block* cache[64];
 extern struct lock global_cache_lock;
 extern bool free_cache_map[64];
 extern int clock_index;
+extern int total_cache_accesses;
+extern int total_cache_hits;
 
 cache_block_t* check_cache(struct block* block, block_sector_t sector);
 cache_block_t* cache_read(struct block* block, block_sector_t sector);
@@ -35,5 +37,8 @@ void cache_write(struct block* block, block_sector_t sector, const void* buffer)
 void cache_read_buffer(struct block* block, block_sector_t sector, const void* buffer);
 uint8_t clock_algorithm(void);
 
+int sys_get_cache_accesses();
+
+int sys_get_cache_hits();
 
 
