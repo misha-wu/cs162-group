@@ -62,16 +62,16 @@ void* cache_read_ret(struct block* block, block_sector_t sector) {
     return cache_read(block, sector)->contents;
 }
 
-cache_block_t* cache_read_new(struct block* block, block_sector_t sector) {
-    cache_block_t* cache_block = cache_read(block, sector);
-    memset(&cache_block->contents, 0, BLOCK_SECTOR_SIZE);
-    return cache_block;
-}
+// cache_block_t* cache_read_new(struct block* block, block_sector_t sector) {
+//     cache_block_t* cache_block = cache_read(block, sector);
+//     memset(&cache_block->contents, 0, BLOCK_SECTOR_SIZE);
+//     return cache_block;
+// }
 
-void cache_read_buffer(struct block* block, block_sector_t sector, const void* buffer) {
-    cache_block_t* cache_entry = cache_read(block, sector);
-    memcpy(buffer, cache_entry->contents, BLOCK_SECTOR_SIZE);
-}
+// void cache_read_buffer(struct block* block, block_sector_t sector, const void* buffer) {
+//     cache_block_t* cache_entry = cache_read(block, sector);
+//     memcpy(buffer, cache_entry->contents, BLOCK_SECTOR_SIZE);
+// }
 
 cache_block_t* cache_read_inner(struct block* block, block_sector_t sector) {
     cache_block_t* cache_block = calloc(1, sizeof(cache_block_t));
@@ -160,32 +160,17 @@ cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     lock_init(&cache_block->lock);
 
     block_read(block, sector, &cache_block->contents);
-    // memcpy(buffer, cache_block->contents, sizeof(cache_block->contents));
 
-    // TOOD ?? global lock or smth this is super sus
     lock_acquire(&global_cache_lock);
-    // PANIC("I am about to evict :(");
     for (int i = 0; i < 64; i++) {
         if (free_cache_map[i]) {
-            // printf("i is %d\n", i);
-            // TODO do some locking
             free_cache_map[i] = false;
             cache[i] = cache_block;
-            // TODO do some unlocking
             lock_release(&global_cache_lock);
             return cache_block;
         }
     }
     lock_release(&global_cache_lock);
-
-    
-
-    // // now we need to evict :(
-    // lock_acquire(&global_cache_lock);
-    // uint8_t evict_index = clock_algorithm();
-    // cache_block_t* to_evict = cache[evict_index];
-    // lock_release(&global_cache_lock);
-
     
     uint8_t evict_index;
     cache_block_t* to_evict;
