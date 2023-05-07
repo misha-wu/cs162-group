@@ -14,6 +14,15 @@ struct block* fs_device;
 
 static void do_format(void);
 
+unsigned long long get_filesys_read_cnt() {
+  return get_read_cnt(fs_device);
+}
+
+unsigned long long get_filesys_write_cnt() {
+  return get_write_cnt(fs_device);
+}
+
+
 /* Initializes the file system module.
    If FORMAT is true, reformats the file system. */
 void filesys_init(bool format) {

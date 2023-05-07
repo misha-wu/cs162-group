@@ -17,4 +17,7 @@ bool filesys_create(const char* name, off_t initial_size);
 struct file* filesys_open(const char* name);
 bool filesys_remove(const char* name);
 
+unsigned long long get_filesys_read_cnt();
+unsigned long long get_filesys_write_cnt();
+
 #endif /* filesys/filesys.h */
