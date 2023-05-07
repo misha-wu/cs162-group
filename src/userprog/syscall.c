@@ -14,14 +14,10 @@
 #include "filesys/directory.h"
 #include "filesys/inode.h"
 
-// global file system lock
-struct lock global_file_lock;
-
 static void syscall_handler(struct intr_frame*);
 
 void syscall_init(void) { 
   intr_register_int(0x30, 3, INTR_ON, syscall_handler, "syscall"); 
-  lock_init(&global_file_lock);
   }
 
 // helper function to get pcb of current process
@@ -69,28 +65,20 @@ int exit(int status) {
 
 // create syscall
 int create(char* filename, unsigned initial_size) {
-  //  get_wo_de_dir(filename, get_cwd());
-  // lock_acquire(&global_file_lock);
   if (filename == NULL) {
-    // lock_release(&global_file_lock);
     exit(-1);
   // check conditions and try to create, which will return false if failed 
   } else {
     struct process* p = process_current();
-    // printf("fd index %d\n", p->fd_index);
-    if (p->fd_index >= 511) {
-      // lock_release(&global_file_lock);
+    if (p->fd_index + 1 >= NUM_FDS) {
       return 0;
     }
     if (strlen(filename) > 256) {
-      // lock_release(&global_file_lock);
       return 0;
     }
     struct dir* cwd = get_cwd();
     bool success = filesys_create_in_dir(filename, initial_size, cwd);
     dir_close(cwd);
-    // lock_release(&global_file_lock);
-    // printf("create succeeded %d\n", success);
     return success;
   }
   return 0;

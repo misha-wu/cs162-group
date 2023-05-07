@@ -505,14 +505,6 @@ void inode_allow_write(struct inode* inode) {
 
 /* Returns the length, in bytes, of INODE's data. */
 off_t inode_length(const struct inode* inode) { 
-  // struct inode_disk* id = calloc(1, sizeof(struct inode_disk));
-  // if (id == NULL) {
-  //   return -1; // ???
-  // }
-  // cache_read_buffer(fs_device, inode->sector, id);
-  // int length = id->length;
-  // free(id);
-  // return length;
   struct inode_disk* id = (struct inode_disk*) cache_read_ret(fs_device, inode->sector);
   return id->length;
 }
