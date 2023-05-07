@@ -86,20 +86,14 @@ int create(char* filename, unsigned initial_size) {
 
 // open syscall
 int open (char *name) {
-  // lock_acquire(&global_file_lock);
   if (name == NULL) {
-    // lock_release(&global_file_lock);
     return -1;
   }
-  // printf("in open\n");
   struct dir* cwd = get_cwd();
-  // struct file* file = filesys_open_in_dir(name, cwd);
   struct fd_entry* fde = filesys_open_in_dir(name, cwd);
   dir_close(cwd);
-  // printf("file is %x\n", file);
   
   if (fde == NULL) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   struct process* p = process_current();
@@ -107,31 +101,20 @@ int open (char *name) {
     file_deny_write(fde->file);
   }
   // add file to fd table and increment next available fd
-  if (p->fd_index >= 511) {
-    // lock_release(&global_file_lock);
+  if (p->fd_index + 1 >= NUM_FDS) {
     return -1;
   }
   int fd = p->fd_index;
-  // p->fd_table[fd] = file;
   p->fd_table[fd] = fde;
-  p->fd_index++;
-
-  // printf("opened %s, is dir %d\n", name, fde->is_dir);
-  
-  // lock_release(&global_file_lock);
+  p->fd_index++;  
   return fd;
 }
 
 // remove syscall
 bool remove (const char *file) {
-  // printf("in remove syscall :')\n");
-  // lock_acquire(&global_file_lock);
   if (file == NULL) {
-    // lock_release(&global_file_lock);
     return NULL;
   }
-  // lock_release(&global_file_lock);
-  // printf("before get cwd in remove\n");
   struct dir* cwd = get_cwd();  
   bool success = filesys_remove_in_dir(file, cwd);
   dir_close(cwd);
@@ -140,32 +123,24 @@ bool remove (const char *file) {
 
 // filesize syscall
 int filesize (int fd) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   struct process* p = process_current();
   struct fd_entry* fde = p->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
     return -1;
   }
-  // int file_len = file_length(p->fd_table[fd]);
   int file_len = file_length(fde->file);
-  // lock_release(&global_file_lock);
   return file_len;
 }
 
 // read syscall
 int read (int fd, void *buffer, unsigned size) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   if (!valid_address(buffer)) {
-    // lock_release(&global_file_lock);
     exit(-1);
   }
   int num_read = 0;
@@ -182,31 +157,23 @@ int read (int fd, void *buffer, unsigned size) {
       cbuf++;
       num_read++;
     }
-    // lock_release(&global_file_lock);
     return num_read;
   }
   // read from a file that is not stdin by calling the appropriate function
-  // struct file* file = process_current()->fd_table[fd];
-  // num_read = file_read(file, buffer, size);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   num_read = file_read(fde->file, buffer, size);
-  // lock_release(&global_file_lock);
   return num_read;
 }
 
 // write syscall
 int write (int fd, const void *buffer, unsigned size) {
-  // lock_acquire(&global_file_lock);
   if (fd != 1 && !valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   if (!valid_address(buffer)) {
-    // lock_release(&global_file_lock);
     exit(-1);
   }
   // write to stdout
@@ -219,19 +186,14 @@ int write (int fd, const void *buffer, unsigned size) {
         min = max_buf_size;
       putbuf(buffer + i * max_buf_size, min);
     }
-    // lock_release(&global_file_lock);
     return size;
   }
   // write to a file that is not stdout by calling the appropriate function
-  // struct file* my_file = process_current()->fd_table[fd];
-  // int num_wrote = file_write(my_file, buffer, size);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   int num_wrote = file_write(fde->file, buffer, size);
-  // lock_release(&global_file_lock);
   if (num_wrote < 0) {
     return 0;
   }
@@ -240,62 +202,44 @@ int write (int fd, const void *buffer, unsigned size) {
 
 // seek syscall
 void seek(int fd, unsigned position) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return;
   }
-  // struct file* file = process_current()->fd_table[fd];
-  // file_seek(file, position);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   file_seek(fde->file, position);
-  // lock_release(&global_file_lock);
 }
 
 // tell syscall
 unsigned tell(int fd) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return -1;
   }
-  // struct file* my_file = process_current()->fd_table[fd];
-  // off_t ret = file_tell(my_file);
   struct fd_entry* fde = process_current()->fd_table[fd];
   if (fde->is_dir) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   off_t ret = file_tell(fde->file);
-  // lock_release(&global_file_lock);
   return ret;
 }
 
 // close syscall
 void close(int fd) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
-  } else {
-    // struct file* file = process_current()->fd_table[fd];
-    // file_close(file);
-
-    struct fd_entry* fde = process_current()->fd_table[fd];
-    if (fde->is_dir) {
-      dir_close(fde->dir);
-    } else {
-      file_close(fde->file);
-    }
-    free(fde);
-
-    // mark that a fd has been closed by setting it to null
-    process_current()->fd_table[fd] = NULL;
-    // lock_release(&global_file_lock);
+    return;
   }
+  struct fd_entry* fde = process_current()->fd_table[fd];
+  if (fde->is_dir) {
+    dir_close(fde->dir);
+  } else {
+    file_close(fde->file);
+  }
+  free(fde);
+
+  // mark that a fd has been closed by setting it to null
+  process_current()->fd_table[fd] = NULL;  
 }
 
 // compute_e syscall
@@ -307,26 +251,21 @@ double compute_e (int n) {
 }
 
 bool mkdir(const char* dir) {
-  // printf("lskfjlakjsdflja\n");
   struct dir* cwd = get_cwd();
   char last_part[NAME_MAX + 1];
   struct dir* directory = get_wo_de_dir(last_part, dir, cwd);
-  // free(diced);
   if (directory == NULL) {
     dir_close(cwd);
     return false;
   }
-  // printf("2\n");
   block_sector_t sector;
   if (!free_map_allocate(1, &sector)) {
     return false;
   }
-  // dir_create(sector, 16);
   wo_de_dir_create(sector, 16, cwd);
   dir_close(cwd);
   if (!dir_add(directory, last_part, sector)) {
     dir_close(directory);
-    // printf("dir add failed :(\n");
     return false;
   }
   dir_close(directory);
@@ -353,31 +292,20 @@ bool chdir(const char* dir) {
 }
 
 bool readdir(int fd, char* name) {
-  // printf("hi in readdir\n");
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return false;
   }
   struct process* p = process_current();
   struct fd_entry* fde = p->fd_table[fd];
   if (!fde->is_dir) {
-    // printf("not a directory\n");
-    // lock_release(&global_file_lock);
     return false;
   }
-  // lock_release(&global_file_lock);
-  // printf("hi2\n");
   bool success = dir_readdir(fde->dir, name);
-  // printf("success %d\n", success);
-  // printf("read name %s\n", name);
   return success;
 }
 
 int inumber(int fd) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return -1;
   }
   struct fd_entry* fde = process_current()->fd_table[fd];
@@ -387,20 +315,15 @@ int inumber(int fd) {
   } else {
     inode = dir_get_inode(fde->dir);
   }
-  // struct inode* inode = process_current()->fd_table[fd]->inode;
-  // lock_release(&global_file_lock);
   return inode_get_inumber(inode);
 }
 
 bool isdir(int fd) {
-  // lock_acquire(&global_file_lock);
   if (!valid_fd(fd)) {
-    // lock_release(&global_file_lock);
     return false;
   }
   struct fd_entry* fde = process_current()->fd_table[fd];
   bool isdir = fde->is_dir;
-  // lock_release(&global_file_lock);
   return isdir;
 }
 
@@ -465,10 +388,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_COMPUTE_E) {
     f->eax = compute_e(args[1]);
   } else if (args[0] == SYS_MKDIR) {
-    // printf("i hate everything\n");
     f->eax = mkdir(args[1]);
   } else if (args[0] == SYS_CHDIR) {
-    // printf("henln\n");
     f->eax = chdir(args[1]);
   } else if (args[0] == SYS_READDIR) {
     f->eax = readdir(args[1], args[2]);
