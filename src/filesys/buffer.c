@@ -7,6 +7,38 @@ int total_cache_hits;
 bool free_cache_map[64];
 int clock_index;
 
+void cache_init() {
+  lock_init(&global_cache_lock);
+  total_cache_accesses = 0;
+  total_cache_hits = 0;
+  for (int i = 0; i < 64; i++) {
+    free_cache_map[i] = true;
+    cache[i] = NULL;
+  }
+  clock_index = 0;
+}
+
+void cache_flush() {
+  total_cache_accesses = 0;
+  total_cache_hits = 0;
+  clock_index = 0;
+
+  for (int i = 0; i < 64; i++) {
+    if (cache[i] == NULL) {
+      continue;
+    }
+    if (cache[i]->dirty) {
+      block_write(cache[i]->block, cache[i]->sector, cache[i]->contents);
+    }
+    free(cache[i]);
+    cache[i] = NULL;
+  }
+
+  for (int i = 0; i < 64; i++) {
+    free_cache_map[i] = true;
+  }
+}
+
 cache_block_t* check_cache(struct block* block, block_sector_t sector) {
     for (int i = 0; i < 64; i++) {
         cache_block_t* cache_block = cache[i];

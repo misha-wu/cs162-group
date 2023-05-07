@@ -43,9 +43,6 @@ bool free_map_allocate(size_t cnt, block_sector_t* sectorp) {
 
 /* Makes CNT sectors starting at SECTOR available for use. */
 void free_map_release(block_sector_t sector, size_t cnt) {
-  // if (sector > 1500) {
-  //   PANIC("big sector %d", sector);
-  // }
   ASSERT(bitmap_all(free_map, sector, cnt));
   lock_acquire(&free_map_lock);
   bitmap_set_multiple(free_map, sector, cnt, false);
@@ -72,9 +69,6 @@ void free_map_close(void) { file_close(free_map_file); }
    it. */
 void free_map_create(void) {
   /* Create inode. */
-
-  // lock_acquire(&free_map_lock);
-
   if (!inode_create(FREE_MAP_SECTOR, bitmap_file_size(free_map)))
     PANIC("free map creation failed");
 
@@ -84,6 +78,4 @@ void free_map_create(void) {
     PANIC("can't open free map");
   if (!bitmap_write(free_map, free_map_file))
     PANIC("can't write free map");
-
-  // lock_release(&free_map_lock);
 }

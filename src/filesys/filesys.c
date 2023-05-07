@@ -21,11 +21,7 @@ void filesys_init(bool format) {
   if (fs_device == NULL)
     PANIC("No file system device found, can't initialize file system.");
 
-  // start: wo de buffer cache code 
   cache_init();
-  // end: wo de buffer cache code
-
-
   inode_init();
   free_map_init();
 
@@ -33,13 +29,10 @@ void filesys_init(bool format) {
     do_format();
 
   free_map_open();
-
-
 }
 
 /* Shuts down the file system module, writing any unwritten data
    to disk. */
-// void filesys_done(void) { free_map_close(); }
 void filesys_done(void) { 
   free_map_close(); 
   cache_flush();
@@ -60,32 +53,11 @@ bool filesys_create(const char* name, off_t initial_size) {
 
   return success;
 }
-// bool filesys_create(const char* name, off_t initial_size) {
-//   block_sector_t inode_sector = 0;
-//   // struct dir* dir = dir_open_root();
-//   struct dir* cwd = get_cwd();
-//   struct dir* dir = get_wo_de_dir(name, cwd);
-//   printf("creating file so\n");
-//   bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
-//                   inode_create(inode_sector, initial_size) && dir_add(dir, name, inode_sector));
-//   if (!success && inode_sector != 0)
-//     free_map_release(inode_sector, 1);
-//   dir_close(dir);
-
-//   return success;
-// }
 
 bool filesys_create_in_dir(const char* name, off_t initial_size, struct dir* cwd) {
   block_sector_t inode_sector = 0;
-  // struct dir* dir = dir_open_root();
-  // struct dir* cwd = get_cwd();
   char last_part[NAME_MAX + 1];
-  // char* diced = dice_and_slice(name);
-  // struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
-  // get_last_part(last_part, &name);
-  // free(diced);
   struct dir* dir = get_wo_de_dir(last_part, name, cwd);
-  // printf("creating file so\n");
   bool success = (dir != NULL && free_map_allocate(1, &inode_sector) &&
                   inode_create(inode_sector, initial_size) && dir_add(dir, last_part, inode_sector));
   if (!success && inode_sector != 0)
@@ -102,9 +74,6 @@ bool filesys_create_in_dir(const char* name, off_t initial_size, struct dir* cwd
    or if an internal memory allocation fails. */
 struct file* filesys_open(const char* name) {
   struct dir* dir = dir_open_root();
-  // struct dir* cwd = get_cwd();
-  // struct dir* dir = get_wo_de_dir(name, cwd);
-  // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
 
   if (dir != NULL)
@@ -118,62 +87,35 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
   if (strcmp("", name) == 0) {
     return false;
   }
-  // struct dir* dir = dir_open_root();
-  // struct dir* cwd = get_cwd();
-  // struct dir* dir = get_wo_de_dir(name, cwd);
   char last_part[NAME_MAX + 1];
-  // struct inode* inode = NULL;
-  // dir_lookup(cwd, "only half a blue sky", &inode);
-
-  // PANIC("half a man");
-
-  // char* diced = dice_and_slice(name);
-  // struct dir* dir = get_wo_de_dir(last_part, diced, cwd);
-  // get_last_part(last_part, &name);
-  // free(diced);
   struct dir* dir = get_wo_de_dir(last_part, name, cwd);
-  // printf("wo de dir %x, inode %x\n", dir, get_dir_inode(dir));
-  // get_wo_de_dir(name, cwd);
   struct inode* inode = NULL;
-
-  // printf("last part %s\n", last_part);
-  // printf("name %s\n", name);
 
   if (dir != NULL)
     dir_lookup(dir, last_part, &inode);
   dir_close(dir);
-
-  // printf("i don't wanna le you go\n");
 
   if (inode == NULL) {
     return NULL;
   }
 
   struct fd_entry* fde = malloc(sizeof(struct fd_entry));
-
   if (fde == NULL) {
     return NULL;
   }
 
   if (get_is_dir(inode)) {
-    // printf("%s is dir\n", name);
     fde->is_dir = true;
     fde->dir = dir_open(inode);
     fde->file = NULL;
     struct inode* inode = NULL;
-    // dir_lookup(fde->dir, "only half a blue sky", &inode);
   } else {
-    // printf("%s is not dir\n", name);
     fde->is_dir = false;
     fde->dir = NULL;
     fde->file = file_open(inode);
   }
 
-  // printf("i can't wait no more \n");
-
   return fde;
-
-  // return file_open(inode);
 }
 
 /* Deletes the file named NAME.
@@ -193,12 +135,8 @@ bool filesys_remove_in_dir(const char* name, struct dir* cwd) {
     return false;
   }
   char last_part[NAME_MAX + 1];
-  // printf("what if it's you\n");
-  // dir_lookup(cwd, "only half a blue sky", &inode);
   struct dir* dir = get_wo_de_dir(last_part, name, cwd);
-  // printf("it's only us, dir is not null is %d\n", dir != NULL);
   bool success = dir != NULL && dir_remove(dir, last_part);
-  // printf("removed with success %d\n", success);
   dir_close(dir);
 
   return success;
