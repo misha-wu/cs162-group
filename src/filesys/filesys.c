@@ -97,7 +97,12 @@ struct file* filesys_open_in_dir(const char* name, struct dir* cwd) {
     return false;
   }
   char last_part[NAME_MAX + 1];
-  struct dir* dir = get_wo_de_dir(last_part, name, cwd);
+  struct dir* dir;
+  if (cwd == NULL) {
+    dir = dir_open_root();
+  } else {
+    dir = get_wo_de_dir(last_part, name, cwd);
+  }
   struct inode* inode = NULL;
 
   if (dir != NULL)

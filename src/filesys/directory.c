@@ -12,7 +12,6 @@
 struct dir {
   struct inode* inode; /* Backing store. */
   off_t pos;           /* Current position. */
-  struct dir* parent;
 };
 
 /* A single directory entry. */
@@ -133,125 +132,6 @@ struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct 
   return NULL;
 }
 
-// struct dir* get_wo_de_dir(char part[NAME_MAX + 1], const char* filename, struct dir* cwd) {
-//   printf("get wo de dir filename %s\n", filename);
-//   struct dir* curr_dir;
-//   if (filename[0] == '/') {
-//     curr_dir = dir_open_root();
-//   } else {
-//     curr_dir = dir_reopen(cwd);
-//   }
-//   if (curr_dir == NULL) {
-//     return NULL;
-//   }
-//   // char part[NAME_MAX + 1];
-//   bool was_file;
-//   int status = get_next_part(part, &filename);
-//   struct dir* last;
-//   struct dir* sec_last;
-//   while (true) {
-//     if (status == 0) {
-//       break;
-//     } else if (status == -1) {
-//       return NULL;
-//     }
-//     printf("part %s\n", part);
-//     struct inode* inode;
-//     bool found = dir_lookup(curr_dir, part, &inode);
-//     // printf("inode at sector %d", get_sector(inode));
-//     status = get_next_part(part, &filename);
-//     printf("status is %d and found %d\n", status, found);
-//     if (!found) {
-//       if (status == 0) {
-//         // printf("inside the if\n");
-//         // struct inode* help = curr_dir->inode;
-//         // close(curr_dir);
-//         // issues: ref counting
-//         return curr_dir;
-//       }
-//       return NULL;
-//     }
-//     printf("inode at sector %d", get_sector(inode));
-    
-//     bool is_dir = get_is_dir(inode);
-//     if (!is_dir) {
-//       printf("panicked at the disco when part was %s\n", part);
-//       return NULL;
-//       // PANIC("panic at the disco");
-//     }
-//     // PANIC("is dir %d", is_dir);
-//     // dir_close(curr_dir);
-//     // if (status == 0) {
-//     //   return inode;
-//     // }
-//     // curr_dir = dir_open(inode);
-//     // if (is_dir) {
-
-//     dir_close(curr_dir);
-//     curr_dir = dir_open(inode);
-//     printf("curr dir or smth, inode %x\n", inode);
-//       // return NULL;
-//     // }
-//   }
-//   dir_close(curr_dir);
-//   return NULL;
-// }
-
-struct inode* path_resolution_funsies(const char* filename, struct dir* cwd, bool last_should_exist) {
-  printf("asldfjkalskdfjalskdfjalds\n");
-  struct dir* curr_dir;
-  printf("filename[0] is %c\n", *filename);
-  if (filename[0] == '/') {
-    printf("wgat\n");
-    curr_dir = dir_open_root();
-  } else {
-    printf("should use cwd, inode is %x\n", get_dir_inode(cwd));
-    curr_dir = dir_reopen(cwd);
-  }
-  if (curr_dir == NULL) {
-    return NULL;
-  }
-  char part[NAME_MAX + 1];
-  bool was_file;
-  int status = get_next_part(part, &filename);
-  while (true) {
-    
-    if (status == 0) {
-      break;
-    }
-    if (status == -1) {
-      return NULL;
-    }
-    printf("part %s\n", part);
-    struct inode* inode;
-    bool found = dir_lookup(curr_dir, part, &inode);
-    status = get_next_part(part, &filename);
-    printf("status is %d and found %d\n", status, found);
-    if (!found) {
-      if (status == 0 && !last_should_exist) {
-        printf("inside the if\n");
-        struct inode* help = curr_dir->inode;
-        // close(curr_dir);
-        // issues: ref counting
-        return help;
-      }
-      return NULL;
-    }
-    
-    bool is_dir = get_is_dir(inode);
-    dir_close(curr_dir);
-    if (status == 0) {
-      return inode;
-    }
-    if (is_dir) {
-      curr_dir = dir_open(inode);
-    }
-  }
-  dir_close(curr_dir);
-  return NULL;
-
-}
-
 /* Opens and returns the directory for the given INODE, of which
    it takes ownership.  Returns a null pointer on failure. */
 struct dir* dir_open(struct inode* inode) {
@@ -305,7 +185,6 @@ static bool lookup(const struct dir* dir, const char* name, struct dir_entry* ep
   ASSERT(name != NULL);
 
   for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
-    // printf("looking up %s, actual name %s\n", name, e.name);
     if (e.in_use && !strcmp(name, e.name)) {
       if (ep != NULL)
         *ep = e;
@@ -372,18 +251,12 @@ bool dir_add(struct dir* dir, const char* name, block_sector_t inode_sector) {
       break;
 
   /* Write slot. */
-
-  // lock_acquire(get_inode_lock(dir->inode));
   
   e.in_use = true;
   strlcpy(e.name, name, sizeof e.name);
   e.inode_sector = inode_sector;
 
   success = inode_write_at(dir->inode, &e, sizeof e, ofs) == sizeof e;
-  
-  // lock_release(get_inode_lock(dir->inode));
-
-  // printf("have supposedly added this to the directory\n");
   lookup(dir, name, NULL, NULL);
 
 done:
@@ -394,9 +267,7 @@ bool dir_is_empty(struct dir* dir) {
   struct dir_entry e;
   size_t ofs;
   for (ofs = 0; inode_read_at(dir->inode, &e, sizeof e, ofs) == sizeof e; ofs += sizeof e) {
-    // printf("should be empty, name is %solympi\n", e.name);
     if (e.in_use && (strcmp(".", e.name) != 0 && strcmp("..", e.name) != 0)) {
-      // printf("inside the if, name is %solympi\n", e.name);
       return false;
     }
   }
@@ -415,49 +286,36 @@ bool dir_remove(struct dir* dir, const char* name) {
   ASSERT(dir != NULL);
   ASSERT(name != NULL);
 
-  // printf("before lookup\n");
   /* Find directory entry. */
   if (!lookup(dir, name, &e, &ofs))
     goto done;
 
-  // printf("after lookup\n");
   /* Open inode. */
   inode = inode_open(e.inode_sector);
-  // printf("open count after opening is %d\n", get_open_count(inode));
   if (inode == NULL)
-    goto done;
-
-  // printf("open count is %d\n", get_open_count(inode));
-  
+    goto done;  
 
   if (get_is_dir(inode)) {
     if (get_open_count(inode) > 1) {
       return false;
     }
     
-    // printf("i'm a directory\n");
     struct dir* my_dir = dir_open(inode);
     if (!dir_is_empty(my_dir)) {
-      // printf("i'm not empty :(\n");
       dir_close(my_dir);
       return false;
     }
-    // printf("i'm empty\n");
     dir_close(my_dir);
   }
 
   /* Erase directory entry. */
-  // lock_acquire(get_inode_lock(dir->inode));
 
   e.in_use = false;
   if (inode_write_at(dir->inode, &e, sizeof e, ofs) != sizeof e) {
-    // lock_release(get_inode_lock(dir->inode));
     goto done;
   }
-  // lock_release(get_inode_lock(dir->inode));
 
   /* Remove inode. */
-  // printf("i never thought there'd\n");
   
   inode_remove(inode);
   success = true;
@@ -473,14 +331,9 @@ done:
 bool dir_readdir(struct dir* dir, char name[NAME_MAX + 1]) {
   struct dir_entry e;
 
-  // printf("hello in read dir, dir->pos is %d\n", dir->pos);
-
   while (inode_read_at(dir->inode, &e, sizeof e, dir->pos) == sizeof e) {
     dir->pos += sizeof e;
-    // if (e.in_use) {
-    // printf("before in use name %s\n", e.name);
     if (e.in_use && (strcmp(".", e.name) != 0 && strcmp("..", e.name) != 0)) {
-      // printf("name %s\n", e.name);
       strlcpy(name, e.name, NAME_MAX + 1);
       return true;
     }

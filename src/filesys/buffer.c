@@ -46,8 +46,7 @@ cache_block_t* check_cache(struct block* block, block_sector_t sector) {
             continue;
         }
         lock_acquire(&global_cache_lock);
-        if (cache_block->sector == sector) { // can i compare blocks like this?? 
-            // memcpy(buffer, cache_block->contents, sizeof(cache_block->contents));
+        if (cache_block->sector == sector) { 
             cache_block->use = true;
             lock_release(&global_cache_lock);
             return cache_block;
@@ -62,17 +61,6 @@ void* cache_read_ret(struct block* block, block_sector_t sector) {
     return cache_read(block, sector)->contents;
 }
 
-// cache_block_t* cache_read_new(struct block* block, block_sector_t sector) {
-//     cache_block_t* cache_block = cache_read(block, sector);
-//     memset(&cache_block->contents, 0, BLOCK_SECTOR_SIZE);
-//     return cache_block;
-// }
-
-// void cache_read_buffer(struct block* block, block_sector_t sector, const void* buffer) {
-//     cache_block_t* cache_entry = cache_read(block, sector);
-//     memcpy(buffer, cache_entry->contents, BLOCK_SECTOR_SIZE);
-// }
-
 cache_block_t* cache_read_inner(struct block* block, block_sector_t sector) {
     cache_block_t* cache_block = calloc(1, sizeof(cache_block_t));
     cache_block->block = block;
@@ -83,14 +71,10 @@ cache_block_t* cache_read_inner(struct block* block, block_sector_t sector) {
 
     block_read(block, sector, &cache_block->contents);
     lock_acquire(&global_cache_lock);
-    // PANIC("I am about to evict :(");
     for (int i = 0; i < 64; i++) {
         if (free_cache_map[i]) {
-            // printf("i is %d\n", i);
-            // TODO do some locking
             free_cache_map[i] = false;
             cache[i] = cache_block;
-            // TODO do some unlocking
             lock_release(&global_cache_lock);
             return cache_block;
         }
@@ -122,22 +106,6 @@ cache_block_t* cache_read_inner(struct block* block, block_sector_t sector) {
     return cache_block;
 
 }
-
-// cache_block_t* cache_read(struct block* block, block_sector_t sector) {
-//     cache_block_t* in_cache = check_cache(block, sector);
-//     lock_acquire(&global_cache_lock);
-//     total_cache_accesses ++;
-//     lock_release(&global_cache_lock);
-    
-//     if (in_cache != NULL) {
-//         lock_acquire(&global_cache_lock);
-//         total_cache_hits ++;
-//         lock_release(&global_cache_lock);
-//         return in_cache;
-//     }
-
-//     return cache_read_inner(block, sector);
-// }
 
 cache_block_t* cache_read(struct block* block, block_sector_t sector) {
     cache_block_t* in_cache = check_cache(block, sector);
@@ -194,13 +162,6 @@ cache_block_t* cache_read(struct block* block, block_sector_t sector) {
             }
         }
     }
-
-    // lock_acquire(&to_evict->lock);
-    // if (to_evict->dirty) {
-    //     block_write(to_evict->block, to_evict->sector, to_evict->contents);
-    // }
-    // cache[evict_index] = cache_block;
-    // lock_release(&to_evict->lock);
     
     return cache_block;
 
@@ -214,30 +175,20 @@ int sys_get_cache_hits() {
     return total_cache_hits;
 }
 
-
-
 void cache_write(struct block* block, block_sector_t sector, const void* buffer) {
     cache_block_t* cache_block = cache_read(block, sector);
-    // HELP TODO what's going on with the retry thing again
     lock_acquire(&cache_block->lock);
     memcpy(cache_block->contents, buffer, BLOCK_SECTOR_SIZE);
     cache_block->dirty = true;
     lock_release(&cache_block->lock);
 }
 
-// TODO dont forget to initialize clock index to 0 somewhere prob filesys init or smth
 uint8_t clock_algorithm(void) { 
-    // lock_acquire(&global_cache_lock);
     while (true) {
-        // if(cache[clock_index] != NULL) {}
         if (!cache[clock_index]->use) {
-            // lock_release(&global_cache_lock);
             return clock_index;
         }
         cache[clock_index]->use = false;
-        
-
         clock_index = (clock_index + 1) % 64;
     }
-    // lock_release(&global_cache_lock);
 }
