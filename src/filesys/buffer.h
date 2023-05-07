@@ -14,13 +14,12 @@
 // #include <bits/types.h>
 
 typedef struct cache_block {
-  struct block* block;
-  block_sector_t sector;
+  struct block* block; // block device
+  block_sector_t sector; // the sector of this cache entry 
   uint8_t contents[BLOCK_SECTOR_SIZE];
   bool dirty; // for write back
   bool use;  // for clock algorithm
   struct lock lock; // when one thread is actively reading/writing to the block, no other thread can evict that block
-  struct list_elem elem;
 } cache_block_t;
 
 // our cache is a 64-array of cache_block pointers
