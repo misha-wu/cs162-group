@@ -71,6 +71,16 @@ void halt(void) {
   NOT_REACHED();
 }
 
+int filesys_read_cnt(void) {
+  return syscall0(SYS_READCNT);
+  // NOT_REACHED();
+}
+
+int filesys_write_cnt(void) {
+  return syscall0(SYS_WRITECNT);
+  // NOT_REACHED();
+}
+
 void flush_cache(void) {
   syscall0(SYS_FLUSH);
   // NOT_REACHED();

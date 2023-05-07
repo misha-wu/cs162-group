@@ -494,5 +494,9 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = sys_get_cache_hits();
   } else if (args[0] == SYS_FLUSH) {
     cache_flush();
+  } else if (args[0] == SYS_WRITECNT) {
+    return get_filesys_write_cnt();
+  } else if (args[0] == SYS_READCNT) {
+    return get_filesys_read_cnt();
   }
 }

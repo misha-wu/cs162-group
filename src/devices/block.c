@@ -58,6 +58,14 @@ struct block* block_first(void) {
   return list_elem_to_block(list_begin(&all_blocks));
 }
 
+unsigned long long get_read_cnt(struct block* device) {
+  return device->read_cnt;
+}
+
+unsigned long long get_write_cnt(struct block* device) {
+  return device->write_cnt;
+}
+
 /* Returns the block device following BLOCK in kernel probe
    order, or a null pointer if BLOCK is the last block device. */
 struct block* block_next(struct block* block) {

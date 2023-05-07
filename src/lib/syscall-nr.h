@@ -43,7 +43,10 @@ enum {
 
   SYS_ACCESSNUM,
   SYS_HITNUM,
-  SYS_FLUSH
+  SYS_FLUSH,
+
+  SYS_READCNT,
+  SYS_WRITECNT
 };
 
 #endif /* lib/syscall-nr.h */
