@@ -340,6 +340,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
   // block_sector_t buffer[128];
   // memset(buffer, 0, 512);
   block_sector_t* buffer;
+  bool free_buffer = false;
   
   if (id->indirect == 0) {
     if (!free_map_allocate(1, &id->indirect)) {
@@ -353,6 +354,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
 
     // buffer = cache_read_new(fs_device, id->indirect);
     buffer = calloc(1, BLOCK_SECTOR_SIZE);
+    free_buffer = true;
   } else {
     // cache_read_buffer(fs_device, id->indirect, buffer);
     buffer = cache_read_ret(fs_device, id->indirect);
@@ -391,6 +393,10 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     cache_write(fs_device, id->indirect, buffer);
   }
 
+  if (free_buffer) {
+    free(buffer);
+  }
+
   // printf("dealt with indirects\n");
   
   if (id->dbl_indirect == 0 && size <= (NUM_DIRECT + 128) * BLOCK_SECTOR_SIZE) {
@@ -402,6 +408,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
   // block_sector_t dbl_buffer[128];
   // memset(dbl_buffer, 0, 512);
   block_sector_t* dbl_buffer;
+  bool free_dbl_buffer = false;
   if (id->dbl_indirect == 0) {
     if (!free_map_allocate(1, &id->dbl_indirect)) {
       // lock_release(&id->lock);
@@ -410,6 +417,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     }
     // dbl_buffer = cache_read_new(fs_device, id->dbl_indirect);
     dbl_buffer = calloc(1, BLOCK_SECTOR_SIZE);
+    free_dbl_buffer = true;
   } else {
     // cache_read_buffer(fs_device, id->dbl_indirect, dbl_buffer);
     dbl_buffer = cache_read_ret(fs_device, id->dbl_indirect);
@@ -461,6 +469,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     if (size > (NUM_DIRECT + 128 + i * 128) * BLOCK_SECTOR_SIZE) {
       // grow, kinda sus check
       block_sector_t* sgl_buffer;
+      bool free_sgl_buffer = false;
       // block_sector_t sgl_buffer[128];
       // memset(sgl_buffer, 0, 512);
       if (dbl_buffer[i] == 0) {
@@ -471,6 +480,7 @@ bool inode_resize(struct inode_disk* id, off_t size) {
         }
         // sgl_buffer = cache_read_new(fs_device, dbl_buffer[i]);
         sgl_buffer = calloc(1, BLOCK_SECTOR_SIZE);
+        free_sgl_buffer = true;
       } else {
         // cache_read_buffer(fs_device, dbl_buffer[i], sgl_buffer);
         sgl_buffer = cache_read_ret(fs_device, dbl_buffer[i]);
@@ -492,6 +502,9 @@ bool inode_resize(struct inode_disk* id, off_t size) {
       }
 
       cache_write(fs_device, dbl_buffer[i], sgl_buffer);
+      if (free_sgl_buffer) {
+        free(sgl_buffer);
+      }
     }
   }
   
@@ -500,6 +513,10 @@ bool inode_resize(struct inode_disk* id, off_t size) {
     id->dbl_indirect = 0;
   } else {
     cache_write(fs_device, id->dbl_indirect, dbl_buffer);
+  }
+
+  if (free_dbl_buffer) {
+    free(dbl_buffer);
   }
 
   // id->length = size;
