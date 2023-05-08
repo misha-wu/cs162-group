@@ -69,4 +69,8 @@ void flush_cache();
 int filesys_write_cnt();
 int filesys_read_cnt();
 
+int never_gets_used(void);
+
+
+
 #endif /* lib/user/syscall.h */

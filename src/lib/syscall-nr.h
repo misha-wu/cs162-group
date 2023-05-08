@@ -46,7 +46,8 @@ enum {
   SYS_FLUSH,
 
   SYS_READCNT,
-  SYS_WRITECNT
+  SYS_WRITECNT,
+  SYS_USELESS,
 };
 
 #endif /* lib/syscall-nr.h */

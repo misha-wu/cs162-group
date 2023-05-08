@@ -110,6 +110,7 @@ int read(int fd, void* buffer, unsigned size) { return syscall3(SYS_READ, fd, bu
 int write(int fd, const void* buffer, unsigned size) {
   return syscall3(SYS_WRITE, fd, buffer, size);
 }
+int never_gets_used(void) { return syscall0(SYS_USELESS); }
 
 void seek(int fd, unsigned position) { syscall2(SYS_SEEK, fd, position); }
 

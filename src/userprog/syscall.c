@@ -407,5 +407,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
     f->eax = get_filesys_write_cnt();
   } else if (args[0] == SYS_READCNT) {
     f->eax = get_filesys_read_cnt();
+  } else if (args[0] == SYS_USELESS) {
+    printf("claire and michelle and vivian and jessica are suffering from pintos semantics\n");
+    f->eax = 162;
   }
 }
