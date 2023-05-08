@@ -30,27 +30,15 @@ void test_main(void) {
 
   random_init(0);
   random_bytes(buf_a, sizeof buf_a);
-  // random_bytes(buf_b, sizeof buf_b);
 
   CHECK(create("a", 0), "create \"a\"");
-  // CHECK(create("b", 0), "create \"b\"");
 
   CHECK((fd_a = open("a")) > 1, "open \"a\"");
-  // CHECK((fd_b = open("b")) > 1, "open \"b\"");
 
   msg("write \"a\"");
   while (ofs_a < FILE_SIZE) {
     write_some_bytes("a", fd_a, buf_a, &ofs_a);
-    // write_some_bytes("b", fd_b, buf_b, &ofs_b);
   }
-  // msg("close \"a\"");
-  // close(fd_a);
-
-  // msg("close \"b\"");
-  // close(fd_b);
-  // check_file("b", buf_b, FILE_SIZE);
-
-  // check_file("a", buf_a, FILE_SIZE);
   msg("flush cache");
   flush_cache();
 
@@ -64,8 +52,6 @@ void test_main(void) {
   accesses = get_cache_accesses();
   hits = get_cache_hits();
   float rate1 = (float) (hits)/accesses;
-
-  // printf("first hits: %d, accesses: %d; rate: %f", hits, accesses, rate1);
   
   msg("close \"a\"");
   close(fd_a);
@@ -73,14 +59,10 @@ void test_main(void) {
 
   msg("read \"a\"");
   read(fd_a, buf_a, 1024);
-  //read twice
+  
   accesses = get_cache_accesses();
   hits = get_cache_hits();
   float rate2 = (float) (hits)/accesses;
-
-  // printf("first hits: %d, accesses: %d; rate: %f", hits, accesses, rate2);
-
-  // int second_hit_rate = hits / accesses;
   msg("close \"a\"");
   close(fd_a);
 

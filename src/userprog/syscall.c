@@ -404,8 +404,8 @@ static void syscall_handler(struct intr_frame* f UNUSED) {
   } else if (args[0] == SYS_FLUSH) {
     cache_flush();
   } else if (args[0] == SYS_WRITECNT) {
-    return get_filesys_write_cnt();
+    f->eax = get_filesys_write_cnt();
   } else if (args[0] == SYS_READCNT) {
-    return get_filesys_read_cnt();
+    f->eax = get_filesys_read_cnt();
   }
 }

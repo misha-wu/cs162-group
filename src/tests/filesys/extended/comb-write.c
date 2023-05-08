@@ -1,13 +1,28 @@
-/*  Check hit rate */
-
 #include <random.h>
 #include <syscall.h>
 #include "tests/lib.h"
 #include "tests/main.h"
 
-#define FILE_SIZE 200
+#define FILE_SIZE 65536
 static char buf_a[FILE_SIZE];
+static char buf_res[FILE_SIZE];
 static char buf_ch[1];
+
+
+static void write_some_bytes(const char* file_name, int fd, const char* buf, size_t* ofs) {
+  if (*ofs < FILE_SIZE) {
+    size_t block_size = random_ulong() % (FILE_SIZE / 8) + 1;
+    size_t ret_val;
+    if (block_size > FILE_SIZE - *ofs)
+      block_size = FILE_SIZE - *ofs;
+
+    ret_val = write(fd, buf + *ofs, block_size);
+    if (ret_val != block_size)
+      fail("write %zu bytes at offset %zu in \"%s\" returned %zu", block_size, *ofs, file_name,
+           ret_val);
+    *ofs += block_size;
+  }
+}
 
 // Test your buffer cache’s ability to 
 // coalesce writes to the same sector. 
@@ -22,8 +37,8 @@ void test_main(void) {
   size_t ofs_a = 0;
   buf_ch[0] = 'a';
 
-  // random_init(0);
-  // random_bytes(buf_a, sizeof buf_a);
+  random_init(0);
+  random_bytes(buf_a, sizeof buf_a);
 
   CHECK(create("a", 0), "create \"a\"");
 
@@ -31,20 +46,29 @@ void test_main(void) {
 
   msg("write \"a\"");
   while (ofs_a < FILE_SIZE) {
-    ofs_a += write(fd_a, buf_ch, 1);
+    ofs_a += write(fd_a, buf_a + ofs_a, 1);
   }
 
-  //read in byte by byte
+  seek(fd_a, 0);
   size_t read_ofs_a = 0;
 
   while (read_ofs_a < FILE_SIZE) {
-    read_ofs_a += read(fd_a, buf_ch, 1);
+    read_ofs_a += read(fd_a, buf_res+read_ofs_a, 1);
   }
 
   int writes = filesys_write_cnt();
   int reads = filesys_read_cnt();
 
-  ASSERT(100<writes && writes<200);
-  ASSERT(100<reads && reads<200);
+  msg("compare device stats");
 
+  ASSERT(writes<1000);
+  ASSERT(reads<1000);
+
+  seek(fd_a, 0);
+
+  msg("compare correctness");
+
+
+  check_file_handle(fd_a, "a", buf_a, 65536);
+  close(fd_a);
 }
